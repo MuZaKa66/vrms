@@ -1,0 +1,157 @@
+2026-03-19 09:19:36 - Main - INFO - ============================================================
+2026-03-19 09:19:36 - Main - INFO - OT VIDEO SYSTEM STARTING
+2026-03-19 09:19:37 - Main - INFO - ============================================================
+2026-03-19 09:19:37 - Main - INFO - ============================================================
+2026-03-19 09:19:37 - Main - INFO - OT Video Management System v1.0.2
+2026-03-19 09:19:37 - Main - INFO - Python 3.13.7
+2026-03-19 09:19:38 - Main - INFO - Platform: Windows-10-10.0.19045-SP0
+2026-03-19 09:19:38 - Main - INFO - Started at: 2026-03-19 09:19:38
+2026-03-19 09:19:38 - Main - INFO - ============================================================
+2026-03-19 09:19:38 - Main - INFO - Initializing database...
+2026-03-19 09:19:42 - Main - INFO - Database initialized successfully
+2026-03-19 09:19:42 - Main - INFO - Verifying database connection...
+2026-03-19 09:19:42 - DatabaseService - DEBUG - Database service initialized: videostore\database\otvideo.db
+2026-03-19 09:19:43 - Main - INFO - Database OK - 70 recordings found
+2026-03-19 09:19:43 - Main - INFO - Checking storage...
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\videos
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\thumbnails
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\temp
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\database
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\metadata_backup
+2026-03-19 09:19:43 - StorageService - DEBUG - All storage directories verified
+2026-03-19 09:19:43 - StorageService - INFO - Storage service initialized successfully
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\videos
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\thumbnails
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\temp
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\database
+2026-03-19 09:19:43 - FileUtils - DEBUG - Directory ensured: videostore\metadata_backup
+2026-03-19 09:19:43 - StorageService - DEBUG - All storage directories verified
+2026-03-19 09:19:43 - StorageService - DEBUG - Storage status: 119.75 GB free of 487.11 GB (75.4% used)
+2026-03-19 09:19:43 - Main - INFO - Storage OK - 119.7 GB free of 487.1 GB
+2026-03-19 09:19:43 - Main - INFO - Cleaning temporary files...
+2026-03-19 09:19:43 - StorageService - INFO - Cleaned temp directory: 0 files removed
+2026-03-19 09:19:44 - Main - INFO - Cleaned 0 temporary files
+2026-03-19 09:19:44 - Main - INFO - System initialization complete
+2026-03-19 09:19:44 - Main - INFO - ============================================================
+2026-03-19 09:19:44 - Main - INFO - Showing splash screen...
+2026-03-19 09:20:00 - Main - INFO - Disclaimer previously accepted
+2026-03-19 09:20:00 - Main - INFO - Creating main window...
+2026-03-19 09:20:01 - SystemMonitorService - INFO - System monitor initialized on Windows
+2026-03-19 09:20:01 - PreviewHandler - DEBUG - PreviewHandler initialized (throttle: every 3 frames)
+2026-03-19 09:20:01 - VideoCaptureService - INFO - Video capture initialized: 0
+2026-03-19 09:20:01 - VideoCaptureService - INFO - Platform: Windows
+2026-03-19 09:20:01 - VideoEncoderService - INFO - Video encoder initialized: OpenCV mode
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\videos
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\thumbnails
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\temp
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\database
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\metadata_backup
+2026-03-19 09:20:02 - StorageService - DEBUG - All storage directories verified
+2026-03-19 09:20:02 - StorageService - INFO - Storage service initialized successfully
+2026-03-19 09:20:02 - RecordingController - INFO - Recording controller initialized
+2026-03-19 09:20:02 - RecordingController - DEBUG - Error callback set
+2026-03-19 09:20:02 - RecordingControllerWrapper - DEBUG - RecordingControllerWrapper initialized
+2026-03-19 09:20:02 - RecordingControllerWrapper - DEBUG - RecordingTimer initialized
+2026-03-19 09:20:02 - MetadataHandler - DEBUG - MetadataHandler initialized
+2026-03-19 09:20:02 - RecordingScreen - INFO - RecordingScreen initialized (LGH Edition)
+2026-03-19 09:20:02 - DatabaseService - DEBUG - Database service initialized: videostore\database\otvideo.db
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\videos
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\thumbnails
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\temp
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\database
+2026-03-19 09:20:02 - FileUtils - DEBUG - Directory ensured: videostore\metadata_backup
+2026-03-19 09:20:02 - StorageService - DEBUG - All storage directories verified
+2026-03-19 09:20:02 - StorageService - INFO - Storage service initialized successfully
+2026-03-19 09:20:02 - LibraryController - INFO - Library controller initialized
+2026-03-19 09:20:03 - DatabaseService - DEBUG - Retrieved 70 recordings
+2026-03-19 09:20:03 - LibraryController - INFO - Retrieved 70 recordings
+2026-03-19 09:20:03 - PlaybackScreen - INFO - Playback screen initialized
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore\videos
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore\thumbnails
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore\temp
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore\database
+2026-03-19 09:20:03 - FileUtils - DEBUG - Directory ensured: videostore\metadata_backup
+2026-03-19 09:20:03 - StorageService - DEBUG - All storage directories verified
+2026-03-19 09:20:03 - StorageService - INFO - Storage service initialized successfully
+2026-03-19 09:20:03 - StorageService - DEBUG - Storage status: 119.75 GB free of 487.11 GB (75.4% used)
+2026-03-19 09:20:03 - SettingsScreen - DEBUG - Storage stats updated: 119.7 GB free
+2026-03-19 09:20:03 - SettingsScreen - INFO - Settings screen initialized
+2026-03-19 09:20:05 - VoiceCommandService - INFO - Loading Vosk model: C:\Users\zb\vosk-models\vosk-model-small-en-us-0.15
+2026-03-19 09:20:23 - VoiceCommandService - INFO - ✓ Voice command service initialized
+2026-03-19 09:20:23 - VoiceCommandService - INFO -   Model: vosk-model-small-en-us-0.15
+2026-03-19 09:20:23 - VoiceCommandService - DEBUG - Command callback set
+2026-03-19 09:20:23 - VoiceIndicator - DEBUG - Voice indicator initialized
+2026-03-19 09:20:23 - MainWindow - INFO - Voice commands initialized (ready)
+2026-03-19 09:20:23 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:23 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:23 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:24 - MainWindow - INFO - Main window initialized
+2026-03-19 09:20:24 - Main - INFO - Application started successfully
+2026-03-19 09:20:24 - Main - INFO - Ready for operation
+2026-03-19 09:20:28 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:28 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:28 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:33 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:33 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:33 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:38 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:38 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:38 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:42 - StorageService - DEBUG - Storage status: 119.75 GB free of 487.11 GB (75.4% used)
+2026-03-19 09:20:42 - RecordingController - INFO - Created recording: 20260319_092042.mp4
+2026-03-19 09:20:42 - VideoCaptureService - INFO - Opening Windows camera 0 with DirectShow
+2026-03-19 09:20:45 - VideoCaptureService - INFO - Camera opened successfully: 640x480 @ 30fps
+2026-03-19 09:20:45 - RecordingController - INFO - Camera opened: None
+2026-03-19 09:20:45 - VideoEncoderService - INFO - OpenCV encoding started: videostore\temp\20260319_092042.mp4
+2026-03-19 09:20:45 - RecordingController - INFO - Encoder started: videostore\temp\20260319_092042.mp4
+2026-03-19 09:20:45 - RecordingController - DEBUG - Recording loop started
+2026-03-19 09:20:45 - RecordingController - INFO - Recording started successfully
+2026-03-19 09:20:45 - RecordingControllerWrapper - INFO - Recording started: None
+2026-03-19 09:20:45 - RecordingControllerWrapper - DEBUG - Timer started
+2026-03-19 09:20:45 - RecordingScreen - INFO - Recording started
+2026-03-19 09:20:46 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:46 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:46 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:48 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:48 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:48 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:50 - RecordingController - INFO - Stopping recording...
+2026-03-19 09:20:50 - RecordingController - DEBUG - Recording loop ended. Frames captured: 77
+2026-03-19 09:20:50 - VideoEncoderService - INFO - OpenCV encoding complete: 77 frames, 0.72 MB
+2026-03-19 09:20:50 - RecordingController - INFO - Encoder stopped: {'frame_count': 77, 'duration_seconds': 5, 'output_path': 'videostore\\temp\\20260319_092042.mp4', 'file_size_bytes': 758366, 'file_size_mb': 0.7232341766357422, 'encoder': 'OpenCV'}
+2026-03-19 09:20:51 - VideoCaptureService - INFO - Camera closed
+2026-03-19 09:20:51 - RecordingController - INFO - Camera closed
+2026-03-19 09:20:51 - RecordingController - DEBUG - Recording duration: 5 seconds
+2026-03-19 09:20:51 - FileUtils - DEBUG - Directory ensured: videostore\videos\2026\03
+2026-03-19 09:20:51 - StorageService - INFO - Saved recording: 20260319_092042.mp4 (0.72 MB)
+2026-03-19 09:20:51 - RecordingController - INFO - Video saved: videostore\videos\2026\03\20260319_092042.mp4
+2026-03-19 09:20:51 - DatabaseService - DEBUG - Database service initialized: videostore\database\otvideo.db
+2026-03-19 09:20:51 - DatabaseService - INFO - Created recording: ID=83, filename=20260319_092042.mp4
+2026-03-19 09:20:51 - RecordingController - INFO - Recording saved to database: ID=83
+2026-03-19 09:20:51 - RecordingController - INFO - ✓ Recording stopped successfully
+2026-03-19 09:20:51 - RecordingControllerWrapper - INFO - Recording stopped: videostore\videos\2026\03\20260319_092042.mp4
+2026-03-19 09:20:51 - RecordingControllerWrapper - DEBUG - Timer stopped
+2026-03-19 09:20:51 - PreviewHandler - DEBUG - Preview cleared
+2026-03-19 09:20:51 - RecordingInfoDialog - DEBUG - Recording info dialog initialized
+2026-03-19 09:20:53 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:53 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:53 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:20:55 - MetadataHandler - INFO - Metadata cleared
+2026-03-19 09:20:55 - RecordingScreen - INFO - Recording stopped
+2026-03-19 09:20:58 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:20:58 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:20:58 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:21:03 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:21:03 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:21:03 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:21:08 - SystemMonitorService - DEBUG - Temperature not available on Windows
+2026-03-19 09:21:08 - SystemMonitorService - WARNING - psutil not installed on Windows
+2026-03-19 09:21:08 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-19 09:21:10 - MainWindow - INFO - Application closing via user request (X button)
+2026-03-19 09:21:10 - Main - INFO - Application shutting down...
+2026-03-19 09:21:10 - Main - INFO - Exit code: 0

@@ -1,0 +1,42 @@
+"""
+File: app/gui/widgets/`voice_indicator.py
+`
+Module Description:
+    Voice recognition indicator widget.
+
+Author: OT Video Dev Team
+Date: January 30, 2026
+"""
+
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel
+from PyQt5.QtCore import Qt
+
+class VoiceIndicatorWidget(QWidget):
+    """Voice recognition status indicator."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        layout = QHBoxLayout(self)
+        
+        self.status_label = QLabel("🎤")
+        self.status_label.setStyleSheet("font-size: 24px;")
+        
+        self.text_label = QLabel("Voice: Off")
+        
+        layout.addWidget(self.status_label)
+        layout.addWidget(self.text_label)
+    
+    def set_listening(self, is_listening: bool):
+        """Update listening status."""
+        if is_listening:
+            self.status_label.setText("🎤")
+            self.text_label.setText("Voice: Listening")
+            self.text_label.setStyleSheet("color: #27ae60;")
+        else:
+            self.status_label.setText("🎤")
+            self.text_label.setText("Voice: Off")
+            self.text_label.setStyleSheet("color: gray;")
+
+
+__all__ = ['VoiceIndicatorWidget']

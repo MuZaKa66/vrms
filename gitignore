@@ -1,0 +1,34 @@
+# Virtual environments
+venv/
+env/
+ENV/
+*.pyc
+*.pyo
+__pycache__/
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+videostore/database/*.db
+videostore/metadata_backup/
+
+# Recordings
+videostore/recordings/
+videostore/videos/
+videostore/thumbnails/
+videostore/temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env

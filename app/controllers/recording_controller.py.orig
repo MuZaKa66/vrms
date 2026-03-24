@@ -1,0 +1,533 @@
+"""
+File: app/controllers/recording_controller.py
+
+Module Description:
+    Recording controller for the OT Video Management System.
+    
+    Orchestrates the complete recording workflow:
+    - Pre-recording checks (storage, camera)
+    - Start recording (camera + encoder)
+    - Real-time monitoring
+    - Stop recording
+    - Save to storage
+    - Save to database
+    - Cleanup
+    
+    Designed for doctors - zero-friction recording:
+    - Single method to start: start_recording()
+    - Single method to stop: stop_recording()
+    - All metadata optional
+    - Professional error handling at every step
+    
+    State Management:
+    - IDLE: Ready to record
+    - CHECKING: Pre-recording checks
+    - STARTING: Initializing camera/encoder
+    - RECORDING: Active recording
+    - STOPPING: Finalizing recording
+    - SAVING: Saving to storage/database
+    - ERROR: Error occurred
+
+Dependencies:
+    - app.services: All hardware services
+    - app.models: Recording model
+    - app.utils: Logging, decorators
+
+Usage Example:
+    >>> from app.controllers.recording_controller import RecordingController
+    >>> 
+    >>> controller = RecordingController()
+    >>> 
+    >>> # Start recording (no metadata needed)
+    >>> success, recording, error = controller.start_recording()
+    >>> if success:
+    ...     print(f"Recording: {recording.filename}")
+    >>> 
+    >>> # Record for some time...
+    >>> 
+    >>> # Stop recording
+    >>> success, final_recording, error = controller.stop_recording()
+    >>> if success:
+    ...     print(f"Saved: {final_recording.filepath}")
+
+Author: OT Video Dev Team
+Date: January 30, 2026
+Version: 1.0.0
+"""
+
+# ============================================================================
+# IMPORTS
+# ============================================================================
+from typing import Tuple, Optional
+from datetime import datetime
+from pathlib import Path
+import time
+import threading
+
+from app.services.video_capture_service import VideoCaptureService
+from app.services.video_encoder_service import VideoEncoderService
+from app.services.storage_service import StorageService
+from app.services.database_service import DatabaseService
+from app.services.audio_feedback_service import AudioFeedbackService
+from app.models.recording import Recording
+from app.utils.logger import AppLogger
+from app.utils.decorators import log_errors
+from app.utils.constants import RecordingState, ErrorCode
+from app.utils.datetime_utils import RecordingTimer
+from config.app_config import TEMP_DIR  # for laptop implementation check suppose to work for both
+# Initialize logger
+logger = AppLogger("RecordingController")
+
+
+# ============================================================================
+# RECORDING CONTROLLER
+# ============================================================================
+class RecordingController:
+    """
+    Recording workflow controller.
+    
+    Manages complete recording lifecycle from start to database save.
+    
+    Attributes:
+        state (RecordingState): Current recording state
+        recording (Recording): Current recording object
+        camera (VideoCaptureService): Video capture service
+        encoder (VideoEncoderService): Video encoder service
+        storage (StorageService): Storage service
+        database (DatabaseService): Database service
+        audio (AudioFeedbackService): Audio feedback service
+        timer (RecordingTimer): Recording duration timer
+        
+    Methods:
+        start_recording(): Begin recording workflow
+        stop_recording(): Stop and save recording
+        pause_recording(): Pause recording (future)
+        resume_recording(): Resume recording (future)
+        cancel_recording(): Cancel and discard recording
+        get_recording_status(): Get current status
+        get_elapsed_time(): Get recording duration
+    
+    Example:
+        >>> controller = RecordingController()
+        >>> 
+        >>> # Check if ready
+        >>> if controller.state == RecordingState.IDLE:
+        ...     success, rec, error = controller.start_recording()
+        >>> 
+        >>> # While recording, check status
+        >>> status = controller.get_recording_status()
+        >>> print(f"Duration: {status['elapsed_formatted']}")
+        >>> 
+        >>> # Stop when done
+        >>> success, final_rec, error = controller.stop_recording()
+    """
+    
+    def __init__(self):
+        """
+        Initialize recording controller.
+        
+        Creates all required service instances.
+        Sets initial state to IDLE.
+        """
+        # Initialize services
+        self.camera = VideoCaptureService()
+        self.encoder = VideoEncoderService()
+        self.storage = StorageService()
+        self.database = DatabaseService()
+        self.audio = AudioFeedbackService()
+        
+        # Initialize audio (optional - won't fail if unavailable)
+        self.audio.initialize()
+        
+        # State management
+        self.state = RecordingState.IDLE
+        self.recording = None
+        self.timer = RecordingTimer()
+        
+        # Recording thread
+        self.recording_thread = None
+        self.stop_recording_flag = False
+        
+        # Temporary file path
+        self.temp_video_path = None
+        
+        logger.info("Recording controller initialized")
+    
+    # ========================================================================
+    # MAIN RECORDING WORKFLOW
+    # ========================================================================
+    
+    @log_errors
+    def start_recording(self, estimated_duration_minutes: int = 60) -> Tuple[bool, Optional[Recording], Optional[str]]:
+        """
+        Start recording workflow.
+        
+        Complete workflow:
+        1. Check if already recording
+        2. Check storage space
+        3. Check camera availability
+        4. Create recording object
+        5. Open camera
+        6. Start encoder
+        7. Begin frame capture loop
+        8. Play start sound
+        
+        Args:
+            estimated_duration_minutes: Expected duration for storage check
+        
+        Returns:
+            tuple: (success, recording, error_message)
+        
+        Example:
+            >>> success, recording, error = controller.start_recording()
+            >>> if not success:
+            ...     display_error(error)
+            >>> else:
+            ...     print(f"Recording started: {recording.filename}")
+        """
+        # Check if already recording
+        if self.state != RecordingState.IDLE:
+            return False, None, "Already recording. Stop current recording first."
+        
+        self.state = RecordingState.CHECKING
+        logger.info("Starting recording workflow")
+        
+        try:
+            # Step 1: Check storage space
+            success, can_record, error = self.storage.can_record(estimated_duration_minutes)
+            if not can_record:
+                self.state = RecordingState.IDLE
+                return False, None, error
+            
+            # Step 2: Check camera availability
+            if not self.camera.is_available():
+                self.state = RecordingState.IDLE
+                return False, None, (
+                    "Camera not found. "
+                    "Please check USB connection and try again."
+                )
+            
+            # Step 3: Create recording object (no metadata yet)
+            self.recording = Recording.create_new()
+            logger.info(f"Created recording: {self.recording.filename}")
+            
+            # Step 4: Setup temporary file path
+            #self.temp_video_path = f"/tmp/{self.recording.filename}" #orig commented zb for laptop implementation
+            self.temp_video_path = str(Path(TEMP_DIR) / self.recording.filename)  # for laptop implementation check suppose to work for both zb
+            # Step 5: Open camera
+            self.state = RecordingState.STARTING
+            success, _, error = self.camera.open()
+            if not success:
+                self.state = RecordingState.ERROR
+                return False, None, error
+            
+            # Step 6: Start encoder
+            success, _, error = self.encoder.start_encoding(self.temp_video_path)
+            if not success:
+                self.camera.close()
+                self.state = RecordingState.ERROR
+                return False, None, error
+            
+            # Step 7: Start recording thread
+            self.stop_recording_flag = False
+            self.recording_thread = threading.Thread(target=self._recording_loop)
+            self.recording_thread.daemon = True
+            self.recording_thread.start()
+            
+            # Step 8: Start timer
+            self.timer.start()
+            
+            # Step 9: Update state
+            self.state = RecordingState.RECORDING
+            
+            # Step 10: Play start sound
+            self.audio.play_recording_start()
+            
+            logger.info("Recording started successfully")
+            return True, self.recording, None
+        
+        except Exception as e:
+            logger.error(f"Error starting recording: {e}")
+            self.state = RecordingState.ERROR
+            self._cleanup()
+            return False, None, "Failed to start recording. Please try again."
+    
+    @log_errors
+    def stop_recording(self) -> Tuple[bool, Optional[Recording], Optional[str]]:
+        """
+        Stop recording and save.
+        
+        Complete workflow:
+        1. Check if recording
+        2. Stop frame capture
+        3. Stop encoder
+        4. Close camera
+        5. Stop timer
+        6. Save to storage
+        7. Save to database
+        8. Play stop sound
+        9. Cleanup
+        
+        Returns:
+            tuple: (success, recording, error_message)
+        
+        Example:
+            >>> success, recording, error = controller.stop_recording()
+            >>> if success:
+            ...     print(f"Saved to: {recording.filepath}")
+            ...     print(f"Duration: {recording.duration_seconds}s")
+        """
+        # Check if recording
+        if self.state != RecordingState.RECORDING:
+            return False, None, "Not currently recording"
+        
+        self.state = RecordingState.STOPPING
+        logger.info("Stopping recording")
+        
+        try:
+            # Step 1: Signal recording thread to stop
+            self.stop_recording_flag = True
+            
+            # Wait for recording thread to finish
+            if self.recording_thread:
+                self.recording_thread.join(timeout=5)
+            
+            # Step 2: Stop timer
+            self.timer.stop()
+            duration = self.timer.get_total_duration()
+            self.recording.duration_seconds = duration
+            
+            # Step 3: Stop encoder
+            success, stats, error = self.encoder.stop_encoding()
+            if not success:
+                logger.warning(f"Encoder stop warning: {error}")
+            else:
+                self.recording.file_size_bytes = stats.get('file_size_bytes', 0)
+            
+            # Step 4: Close camera
+            self.camera.close()
+            
+            # Step 5: Save to storage
+            self.state = RecordingState.SAVING
+            success, final_path, error = self.storage.save_recording(
+                self.temp_video_path,
+                self.recording
+            )
+            
+            if not success:
+                self.state = RecordingState.ERROR
+                return False, None, error
+            
+            # Step 6: Save to database
+            success, rec_id, error = self.database.create_recording(self.recording)
+            if not success:
+                logger.error(f"Database save error: {error}")
+                # File is saved but not in database - log warning
+                logger.warning(f"Recording saved to {final_path} but not in database")
+                # Still return success since file is saved
+            else:
+                self.recording.id = rec_id
+            
+            # Step 7: Play stop sound
+            self.audio.play_recording_stop()
+            
+            # Step 8: Update state
+            self.state = RecordingState.IDLE
+            
+            logger.info(
+                f"Recording saved: {self.recording.filename}, "
+                f"Duration: {duration}s, "
+                f"Size: {self.recording.file_size_bytes / (1024**2):.2f} MB"
+            )
+            
+            # Return recording object
+            final_recording = self.recording
+            self.recording = None
+            
+            return True, final_recording, None
+        
+        except Exception as e:
+            logger.error(f"Error stopping recording: {e}")
+            self.state = RecordingState.ERROR
+            self._cleanup()
+            return False, None, "Error saving recording. File may be incomplete."
+    
+    @log_errors
+    def cancel_recording(self) -> Tuple[bool, None, Optional[str]]:
+        """
+        Cancel recording without saving.
+        
+        Discards current recording and cleans up.
+        
+        Returns:
+            tuple: (success, None, error_message)
+        
+        Example:
+            >>> success, _, error = controller.cancel_recording()
+            >>> if success:
+            ...     print("Recording cancelled")
+        """
+        if self.state not in [RecordingState.RECORDING, RecordingState.PAUSED]:
+            return False, None, "No recording to cancel"
+        
+        logger.info("Cancelling recording")
+        
+        try:
+            # Stop recording thread
+            self.stop_recording_flag = True
+            if self.recording_thread:
+                self.recording_thread.join(timeout=5)
+            
+            # Stop timer
+            self.timer.stop()
+            
+            # Stop encoder (without saving)
+            self.encoder.stop_encoding()
+            
+            # Close camera
+            self.camera.close()
+            
+            # Delete temporary file
+            if self.temp_video_path and Path(self.temp_video_path).exists():
+                Path(self.temp_video_path).unlink()
+            
+            # Reset state
+            self.state = RecordingState.IDLE
+            self.recording = None
+            
+            logger.info("Recording cancelled successfully")
+            return True, None, None
+        
+        except Exception as e:
+            logger.error(f"Error cancelling recording: {e}")
+            self._cleanup()
+            return False, None, "Error cancelling recording"
+    
+    # ========================================================================
+    # RECORDING LOOP (runs in background thread)
+    # ========================================================================
+    
+    def _recording_loop(self):
+        """
+        Background thread that captures frames.
+        
+        Runs continuously until stop_recording_flag is set.
+        Captures frames from camera and writes to encoder.
+        """
+        logger.debug("Recording loop started")
+        frame_count = 0
+        
+        try:
+            while not self.stop_recording_flag:
+                # Capture frame
+                success, frame, error = self.camera.read_frame()
+                
+                if not success:
+                    logger.warning(f"Frame capture failed: {error}")
+                    continue
+                
+                # Write to encoder
+                success, _, error = self.encoder.write_frame(frame)
+                
+                if not success:
+                    logger.error(f"Frame encoding failed: {error}")
+                    break
+                
+                frame_count += 1
+                
+                # Small delay to control frame rate
+                time.sleep(0.001)
+        
+        except Exception as e:
+            logger.error(f"Recording loop error: {e}")
+            self.state = RecordingState.ERROR
+        
+        logger.debug(f"Recording loop stopped. Frames captured: {frame_count}")
+    
+    # ========================================================================
+    # STATUS AND MONITORING
+    # ========================================================================
+    
+    def get_recording_status(self) -> dict:
+        """
+        Get current recording status.
+        
+        Returns:
+            dict: Status information
+                - state: Current RecordingState
+                - is_recording: Boolean
+                - filename: Current filename (if recording)
+                - elapsed_seconds: Recording duration in seconds
+                - elapsed_formatted: Formatted duration (HH:MM:SS)
+        
+        Example:
+            >>> status = controller.get_recording_status()
+            >>> print(f"State: {status['state']}")
+            >>> print(f"Duration: {status['elapsed_formatted']}")
+        """
+        return {
+            'state': self.state,
+            'is_recording': self.state == RecordingState.RECORDING,
+            'filename': self.recording.filename if self.recording else None,
+            'elapsed_seconds': self.timer.get_elapsed_seconds(),
+            'elapsed_formatted': self.timer.get_elapsed_formatted()
+        }
+    
+    def get_elapsed_time(self) -> int:
+        """
+        Get recording duration in seconds.
+        
+        Returns:
+            int: Elapsed seconds (0 if not recording)
+        
+        Example:
+            >>> elapsed = controller.get_elapsed_time()
+            >>> print(f"Recording for {elapsed} seconds")
+        """
+        return self.timer.get_elapsed_seconds()
+    
+    # ========================================================================
+    # CLEANUP
+    # ========================================================================
+    
+    def _cleanup(self):
+        """
+        Internal cleanup method.
+        
+        Closes all resources and resets state.
+        Called on error or cancel.
+        """
+        try:
+            # Stop recording thread
+            self.stop_recording_flag = True
+            
+            # Close camera
+            self.camera.close()
+            
+            # Stop encoder
+            self.encoder.stop_encoding()
+            
+            # Stop timer
+            self.timer.reset()
+            
+            # Delete temp file
+            if self.temp_video_path and Path(self.temp_video_path).exists():
+                try:
+                    Path(self.temp_video_path).unlink()
+                except:
+                    pass
+            
+            # Reset state
+            self.state = RecordingState.IDLE
+            self.recording = None
+            
+            logger.debug("Cleanup completed")
+        
+        except Exception as e:
+            logger.error(f"Cleanup error: {e}")
+
+
+# ============================================================================
+# EXPORT
+# ============================================================================
+__all__ = ['RecordingController']

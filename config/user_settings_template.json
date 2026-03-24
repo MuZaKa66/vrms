@@ -1,0 +1,87 @@
+json
+{
+  "_comment": "File: config/user_settings_template.json",
+  "_description": "User preferences template for OT Video Management System. Copy this file to user_settings.json and customize values. Do not modify this template file directly.",
+  
+  "version": "1.0.0",
+  
+  "user_preferences": {
+    "_comment": "Default values for user-specific settings",
+    
+    "default_operating_theatre": "OT_1",
+    "default_surgeon": "",
+    "default_procedure": "",
+    
+    "voice_commands_enabled": true,
+    "audio_feedback_enabled": true,
+    "voice_feedback_volume": 0.8,
+    
+    "auto_tag_timestamp": true,
+    "confirm_before_delete": true,
+    "confirm_before_export": false,
+    
+    "auto_backup_enabled": true,
+    "auto_backup_interval_hours": 24
+  },
+  
+  "display": {
+    "_comment": "Display and screen settings",
+    
+    "brightness": 100,
+    "screen_timeout_minutes": 5,
+    "screen_orientation": 0,
+    "fullscreen": true,
+    
+    "show_fps_counter": false,
+    "show_recording_timer": true,
+    "show_storage_indicator": true
+  },
+  
+  "recording": {
+    "_comment": "Recording preferences",
+    
+    "default_video_quality": "high",
+    "auto_create_thumbnail": true,
+    "thumbnail_time_offset_seconds": 10,
+    
+    "max_recording_duration_minutes": 120,
+    "recording_countdown_seconds": 3,
+    "auto_stop_on_storage_low": true
+  },
+  
+  "library": {
+    "_comment": "Video library display preferences",
+    
+    "default_sort_by": "date_desc",
+    "items_per_page": 12,
+    "thumbnail_size": "medium",
+    
+    "show_patient_name": true,
+    "show_procedure": true,
+    "show_duration": true,
+    "show_file_size": true
+  },
+  
+  "export": {
+    "_comment": "Export preferences",
+    
+    "default_export_format": "original",
+    "include_metadata_file": true,
+    "metadata_format": "json",
+    
+    "verify_after_export": true,
+    "auto_eject_after_export": false
+  },
+  
+  "advanced": {
+    "_comment": "Advanced settings - modify with caution",
+    
+    "log_level": "INFO",
+    "enable_debug_mode": false,
+    "hardware_acceleration": true,
+    
+    "database_cache_size": 10000,
+    "thumbnail_cache_size": 50
+  }
+}
+

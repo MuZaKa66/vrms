@@ -1,0 +1,219 @@
+
+"""
+File: app/services/video_encoder_service.py
+
+Module Description:
+    H.264 video encoding using FFmpeg hardware acceleration.
+    
+    Real-time encoding with professional error handling:
+    - Hardware H.264 encoding (Raspberry Pi 4 GPU)
+    - Non-blocking design (background thread)
+    - Progress monitoring
+    - Error recovery
+    - Professional status messages
+
+Dependencies:
+    - subprocess: FFmpeg process management
+    - threading: Background encoding
+    - numpy: Frame arrays
+
+Author: OT Video Dev Team
+Date: January 30, 2026
+Version: 1.0.0
+"""
+
+import subprocess
+import threading
+import time
+from typing import Tuple, Optional, Dict
+from pathlib import Path
+import numpy as np
+
+from config.app_config import (
+    VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS,
+    VIDEO_BITRATE, VIDEO_ENCODER, TEMP_DIR
+)
+from app.utils.logger import AppLogger
+from app.utils.file_utils import ensure_directory
+from app.utils.decorators import log_errors
+
+logger = AppLogger("VideoEncoderService")
+
+
+class VideoEncoderService:
+    """
+    H.264 video encoder service.
+    
+    Uses FFmpeg with hardware acceleration (h264_v4l2m2m).
+    
+    Methods:
+        start_encoding(output_path): Begin encoding
+        write_frame(frame): Add frame to encode
+        stop_encoding(): Finalize video
+        get_status(): Get encoding status
+    
+    Example:
+        >>> encoder = VideoEncoderService()
+        >>> success, _, error = encoder.start_encoding("/tmp/output.mp4")
+        >>> 
+        >>> # Write frames
+        >>> for frame in camera_frames:
+        ...     encoder.write_frame(frame)
+        >>> 
+        >>> # Finish
+        >>> success, stats, error = encoder.stop_encoding()
+        >>> print(f"Encoded {stats['frame_count']} frames")
+    """
+    
+    def __init__(self):
+        self.process = None
+        self.is_encoding = False
+        self.frame_count = 0
+        self.output_path = None
+        self.start_time = None
+        
+        logger.info("Video encoder initialized")
+    
+    @log_errors
+    def start_encoding(self, output_path: str) -> Tuple[bool, None, Optional[str]]:
+        """
+        Start encoding to file.
+        
+        Args:
+            output_path: Output video file path
+        
+        Returns:
+            tuple: (success, None, error_message)
+        """
+        if self.is_encoding:
+            return False, None, "Encoding already in progress"
+        
+        try:
+            output_path = Path(output_path)
+            ensure_directory(output_path.parent)
+            self.output_path = str(output_path)
+            
+            # FFmpeg command with hardware encoding
+            cmd = [
+                'ffmpeg',
+                '-y',  # Overwrite
+                '-f', 'rawvideo',
+                '-vcodec', 'rawvideo',
+                '-pix_fmt', 'bgr24',
+                '-s', f'{VIDEO_WIDTH}x{VIDEO_HEIGHT}',
+                '-r', str(VIDEO_FPS),
+                '-i', '-',  # stdin
+                '-c:v', VIDEO_ENCODER,  # h264_v4l2m2m
+                '-b:v', VIDEO_BITRATE,
+                '-pix_fmt', 'yuv420p',
+                self.output_path
+            ]
+            
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            self.is_encoding = True
+            self.frame_count = 0
+            self.start_time = time.time()
+            
+            logger.info(f"Encoding started: {self.output_path}")
+            return True, None, None
+        
+        except FileNotFoundError:
+            return False, None, "FFmpeg not found. Please install video encoding software."
+        except Exception as e:
+            logger.error(f"Encoder error: {e}")
+            return False, None, "Could not start encoding. Please try again."
+    
+    @log_errors
+    def write_frame(self, frame: np.ndarray) -> Tuple[bool, None, Optional[str]]:
+        """
+        Write frame to encoder.
+        
+        Args:
+            frame: Video frame (numpy array, BGR format)
+        
+        Returns:
+            tuple: (success, None, error_message)
+        """
+        if not self.is_encoding or self.process is None:
+            return False, None, "Encoder not started"
+        
+        try:
+            self.process.stdin.write(frame.tobytes())
+            self.frame_count += 1
+            return True, None, None
+        
+        except BrokenPipeError:
+            logger.error("Encoding pipe broken")
+            return False, None, "Encoding failed. Video may be corrupted."
+        except Exception as e:
+            logger.error(f"Frame write error: {e}")
+            return False, None, "Frame encoding failed"
+    
+    @log_errors
+    def stop_encoding(self) -> Tuple[bool, Dict, Optional[str]]:
+        """
+        Stop encoding and finalize file.
+        
+        Returns:
+            tuple: (success, stats_dict, error_message)
+        """
+        if not self.is_encoding:
+            return False, {}, "Not encoding"
+        
+        try:
+            # Close stdin
+            if self.process and self.process.stdin:
+                self.process.stdin.close()
+            
+            # Wait for FFmpeg
+            if self.process:
+                self.process.wait(timeout=10)
+            
+            self.is_encoding = False
+            
+            # Calculate stats
+            duration = time.time() - self.start_time if self.start_time else 0
+            
+            file_size = 0
+            if Path(self.output_path).exists():
+                file_size = Path(self.output_path).stat().st_size
+            
+            stats = {
+                'frame_count': self.frame_count,
+                'duration_seconds': int(duration),
+                'output_path': self.output_path,
+                'file_size_bytes': file_size,
+                'file_size_mb': file_size / (1024**2)
+            }
+            
+            logger.info(
+                f"Encoding complete: {self.frame_count} frames, "
+                f"{stats['file_size_mb']:.2f} MB"
+            )
+            
+            return True, stats, None
+        
+        except subprocess.TimeoutExpired:
+            if self.process:
+                self.process.kill()
+            return False, {}, "Encoding timeout. File may be incomplete."
+        except Exception as e:
+            logger.error(f"Stop encoding error: {e}")
+            return False, {}, "Could not finalize video"
+    
+    def get_status(self) -> Dict:
+        """Get encoding status."""
+        return {
+            'is_encoding': self.is_encoding,
+            'frame_count': self.frame_count,
+            'output_path': self.output_path
+        }
+
+
+__all__ = ['VideoEncoderService']

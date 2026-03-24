@@ -1,0 +1,28 @@
+# --- Background Setup ---
+Window.SetBackgroundTopColor (0, 0, 0);
+Window.SetBackgroundBottomColor (0, 0, 0);
+
+# --- Load the Text ---
+text_image = Image("text.png");
+text_sprite = Sprite(text_image);
+text_sprite.SetX(Window.GetWidth() / 2 - text_image.GetWidth() / 2);
+text_sprite.SetY(Window.GetHeight() / 3);
+
+# --- Load the 8 Spinner Frames ---
+for (i = 0; i < 8; i++)
+  spinner_images[i] = Image("spinner-" + i + ".png");
+
+spinner_sprite = Sprite();
+spinner_sprite.SetX(Window.GetWidth() / 2 - 100); # Center (assuming 200px wide)
+spinner_sprite.SetY(Window.GetHeight() / 2);
+
+# --- Animation Loop ---
+progress = 0;
+fun refresh_callback () {
+  # Change frame every 5 refresh cycles for a smooth 15-20fps feel
+  current_frame = (progress / 5) % 8;
+  spinner_sprite.SetImage(spinner_images[current_frame]);
+  progress++;
+}
+
+Plymouth.SetRefreshFunction (refresh_callback);

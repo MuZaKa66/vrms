@@ -1,0 +1,1399 @@
+# File: app/gui/recording_screen.py
+"""
+Recording Screen Module - Voice-Friendly Medical Recording Interface
+=====================================================================
+
+Version: 4.0.1 (Patched for existing codebase)
+Date: February 16, 2026
+
+CHANGES FROM V4.0.0:
+--------------------
+1. REMOVED: existing_metadata parameter from MetadataDialog calls
+2. ADDED: _metadata_is_empty() method (compatible with your metadata.py)
+3. FIXED: Preview uses polling (get_current_frame()) not signals
+4. PRESERVED: All UI improvements, keyboard shortcuts, storage monitoring
+5. COMPATIBLE: Works with your existing recording_controller.py
+
+CRITICAL FIXES IMPLEMENTED:
+---------------------------
+- SNo 3: Real storage monitoring with disk space checks
+- SNo 4: No magic numbers - design tokens + responsive layout
+- SNo 5: Professional pulsating dot with HTML/CSS (no shifting)
+- SNo 6: Visual feedback during stop operation
+- SNo 7: Optimized preview (frame skipping, downscaling)
+- SNo 11: Voice mode flag always reset (try/finally pattern)
+- SNo 13: Full keyboard shortcuts (Space, Ctrl+I, Esc, F1)
+- SNo 14: Informative preview placeholders (camera ready, error states)
+- SNo 15: Short recording confirmation (3s discard / 30s confirm)
+
+USAGE:
+    from app.gui.recording_screen import RecordingScreen
+    
+    screen = RecordingScreen(parent)
+    screen.show()
+"""
+
+import os
+import time
+import shutil
+from typing import Optional, Tuple
+
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
+    QProgressBar, QFrame, QMessageBox, QShortcut, QSizePolicy,
+    QApplication
+)
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtGui import QFont, QPixmap, QPainter, QColor, QKeySequence
+
+import cv2
+import numpy as np
+
+from app.controllers.recording_controller import RecordingController
+from app.gui.metadata_dialog import MetadataDialog
+from app.models.metadata import RecordingMetadata
+from app.utils.constants import RecordingState
+from app.utils.logger import AppLogger
+
+logger = AppLogger("RecordingScreen")
+
+
+class RecordingScreen(QWidget):
+    """
+    Main recording interface with voice command support and professional UI.
+    
+    This screen provides:
+    - Real-time video preview with status placeholders
+    - Recording controls with keyboard shortcuts
+    - Metadata management (Add/Edit/Clear)
+    - Storage monitoring with warnings
+    - Voice mode for hands-free operation
+    
+    Signals:
+        recording_started: Emitted when recording begins
+        recording_stopped: Emitted when recording ends (with path)
+        error_occurred: Emitted on any error (for parent handling)
+    """
+    
+    # Custom signals for parent communication
+    recording_started = pyqtSignal()
+    recording_stopped = pyqtSignal(str)  # Emits file path
+    error_occurred = pyqtSignal(str)     # Emits error message
+    
+    # =========================================================================
+    # DESIGN CONSTANTS - Single source of truth (Fixes SNo 4)
+    # =========================================================================
+    class Design:
+        """Design tokens - modify these to change the entire UI."""
+        
+        # Spacing scale (8px grid)
+        SPACING = {
+            'xs': 4,    # Extra small
+            'sm': 8,    # Small
+            'md': 16,   # Medium
+            'lg': 24,   # Large
+            'xl': 32,   # Extra large
+            'xxl': 48,  # 2x large
+        }
+        
+        # Colors (semantic naming)
+        COLORS = {
+            'success': '#27ae60',
+            'success_hover': '#229954',
+            'success_pressed': '#1e8449',
+            
+            'danger': '#e74c3c',
+            'danger_hover': '#c0392b',
+            'danger_pressed': '#a93226',
+            
+            'info': '#5dade2',
+            'info_hover': '#3498db',
+            'info_pressed': '#2980b9',
+            
+            'warning': '#f39c12',
+            'warning_hover': '#e67e22',
+            'warning_bg': '#fef5e7',
+            
+            'text_primary': '#2c3e50',
+            'text_secondary': '#7f8c8d',
+            'text_light': '#ecf0f1',
+            
+            'background': '#ecf0f1',
+            'background_dark': '#bdc3c7',
+            'border': '#34495e',
+            
+            'preview_bg': '#2c3e50',
+        }
+        
+        # Component sizes
+        SIZES = {
+            'preview': (280, 210),           # Width, Height
+            'preview_min': (200, 150),
+            'preview_max': (400, 300),
+            
+            'record_button': (340, 200),      # Start/Stop button
+            'record_button_min': (200, 120),
+            'record_button_max': (500, 300),
+            
+            'info_button': (200, 55),
+            'info_button_height': 55,
+            
+            'storage_bar_height': 40,
+            'timer_font': 48,
+            'status_font': 20,
+            'button_font': 24,
+            'label_font': 11,
+        }
+        
+        # Timing constants (milliseconds)
+        TIMINGS = {
+            'storage_check': 30000,           # Check disk every 30 seconds
+            'timer_update': 100,               # Update timer every 100ms
+            'dot_blink': 500,                  # Blink every 500ms
+            'status_clear': 3000,              # Clear status after 3 seconds
+            'preview_throttle': 3,              # Show every 3rd frame (~3-4 fps)
+            'countdown': 3000,                  # 3 second countdown
+            'undo_timeout': 5000,               # Show undo for 5 seconds
+            'confirmation_delay': 1500,          # Show success for 1.5 seconds
+        }
+        
+        # Recording thresholds (seconds)
+        THRESHOLDS = {
+            'min_recording': 3,                 # <3s: ask to discard
+            'confirm_until': 30,                 # 3-30s: confirm save
+            'auto_save_after': 30,                # >30s: save silently
+        }
+        
+        # Preview states
+        PREVIEW_STATES = {
+            'no_camera': "📷 No Camera Detected\nCheck connection",
+            'loading': "⏳ Initializing Camera...",
+            'error': "⚠ Camera Error\nCheck permissions",
+            'disabled': "📹 Camera Disabled",
+            'ready': "📷 Camera Ready\nStart recording to see preview",
+            'countdown': "",  # Dynamic
+            'saved': "✓ Saved\nDuration: {duration}\nSize: {size}",
+        }
+    
+    # =========================================================================
+    # INITIALIZATION
+    # =========================================================================
+    
+    def __init__(self, parent=None):
+        """Initialize the recording screen with all components."""
+        super().__init__(parent)
+        
+        # Core components
+        self.controller = RecordingController()
+        self.metadata = RecordingMetadata()
+        self.voice_mode_active = False
+        self.recording_start_time = None
+        self.last_recording_path = None
+        
+        # Preview optimization (Fixes SNo 7)
+        self.frame_counter = 0
+        self.preview_skip_target = self.Design.TIMINGS['preview_throttle']
+        self.preview_buffer = None
+        self.last_preview_time = 0
+        
+        # State tracking
+        self.emergency_stop = False
+        self._cleaned_up = False
+        self.dot_visible = True
+        
+        # Connect error callback from controller
+        self.controller.set_error_callback(self._handle_recording_error)
+        
+        # Initialize UI
+        self._setup_ui()
+        self._setup_shortcuts()  # Fixes SNo 13
+        self._start_storage_monitoring()  # Fixes SNo 3
+        
+        # Initial preview state
+        self._check_camera_status()
+        
+        logger.info("RecordingScreen v4.0.1 initialized (patched for existing codebase)")
+    
+    # =========================================================================
+    # UI CONSTRUCTION - Improved Layout (Fixes SNo 4 layout issues)
+    # =========================================================================
+    
+    def _setup_ui(self):
+        """Build the complete user interface with proper spacing."""
+        # Main layout - vertical with proper margins
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(self.Design.SPACING['sm'])
+        main_layout.setContentsMargins(
+            self.Design.SPACING['md'],
+            self.Design.SPACING['sm'],
+            self.Design.SPACING['md'],
+            self.Design.SPACING['lg']  # Increased bottom margin for nav gap
+        )
+        
+        # === STORAGE BAR (Top) ===
+        storage_frame = self._create_storage_bar()
+        main_layout.addWidget(storage_frame)
+        
+        # Small spacing after storage
+        main_layout.addSpacing(self.Design.SPACING['xs'])
+        
+        # === STATUS LABEL ===
+        self.status_label = QLabel("Ready to Record")
+        self.status_label.setFont(QFont("Arial", self.Design.SIZES['status_font'], QFont.Bold))
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet(f"color: {self.Design.COLORS['danger']};")
+        main_layout.addWidget(self.status_label)
+        
+        # === INFO ROW (Add/Edit/Clear + Display) ===
+        info_row = QHBoxLayout()
+        info_row.setSpacing(self.Design.SPACING['md'])
+        
+        # Add/Edit Info button
+        self.info_btn = QPushButton("Add Info")
+        self.info_btn.setFixedSize(
+            self.Design.SIZES['info_button'][0],
+            self.Design.SIZES['info_button'][1]
+        )
+        self.info_btn.setStyleSheet(self._get_info_button_style(has_info=False))
+        self.info_btn.clicked.connect(self._show_info_dialog)
+        info_row.addWidget(self.info_btn)
+        
+        # Clear button (initially hidden)
+        self.clear_btn = QPushButton("Clear")
+        self.clear_btn.setFixedSize(100, self.Design.SIZES['info_button'][1])
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #95a5a6;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #7f8c8d; }
+        """)
+        self.clear_btn.clicked.connect(self._confirm_clear_info)
+        self.clear_btn.setVisible(False)
+        info_row.addWidget(self.clear_btn)
+        
+        # Info display text
+        self.info_display = QLabel("")
+        self.info_display.setFont(QFont("Arial", self.Design.SIZES['label_font']))
+        self.info_display.setStyleSheet(f"color: {self.Design.COLORS['success']}; font-weight: bold;")
+        self.info_display.setWordWrap(True)
+        info_row.addWidget(self.info_display, 1)  # Stretch to fill
+        
+        main_layout.addLayout(info_row)
+        
+        # === TIMER (Moved UP - reduced spacing) ===
+        main_layout.addSpacing(self.Design.SPACING['xs'])  # Was 10px, now 5px
+        
+        self.timer_label = QLabel("00:00:00")
+        self.timer_label.setFont(QFont("Arial", self.Design.SIZES['timer_font'], QFont.Bold))
+        self.timer_label.setAlignment(Qt.AlignCenter)
+        self.timer_label.setStyleSheet(f"color: {self.Design.COLORS['text_primary']};")
+        main_layout.addWidget(self.timer_label)
+        
+        # Minimal spacing before preview (moved UP)
+        main_layout.addSpacing(self.Design.SPACING['xs'])
+        
+        # === PREVIEW CONTAINER (Raised toward middle) ===
+        preview_container = self._create_preview_container()
+        # Fixed: Removed stretch factor 0 that was crushing preview to black strip
+        main_layout.addWidget(preview_container, alignment=Qt.AlignRight)
+        
+        # === RECORD BUTTON (Moved UP accordingly) ===
+        main_layout.addSpacing(self.Design.SPACING['sm'])  # Reduced from md to sm
+        
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.record_btn = QPushButton("START RECORDING")
+        self.record_btn.setFixedSize(
+            self.Design.SIZES['record_button'][0],
+            self.Design.SIZES['record_button'][1]
+        )
+        # Fixed: Removed setMinimumSize and setMaximumSize for consistency
+        self.record_btn.setStyleSheet(self._get_record_button_style(is_recording=False))
+        self.record_btn.clicked.connect(self._toggle_recording)
+        button_layout.addWidget(self.record_btn)
+        
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+        
+        # === BOTTOM SPACING (Clean gap before navigation) ===
+        main_layout.addSpacing(60)  # Increased from 50 to 60 for cleaner gap
+        
+        # Add stretch at bottom to push everything up
+        main_layout.addStretch(1)
+    
+    def _create_storage_bar(self) -> QFrame:
+        """Create the storage usage bar with styling."""
+        frame = QFrame()
+        frame.setStyleSheet("QFrame { background-color: #ecf0f1; border-radius: 5px; }")
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(10, 5, 10, 5)
+        
+        # Storage label
+        label = QLabel("Storage:")
+        label.setFont(QFont("Arial", 12, QFont.Bold))
+        layout.addWidget(label)
+        
+        # Progress bar
+        self.storage_bar = QProgressBar()
+        self.storage_bar.setMinimum(0)
+        self.storage_bar.setMaximum(100)
+        self.storage_bar.setValue(0)
+        self.storage_bar.setFormat("Calculating...")
+        self.storage_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                text-align: center;
+                height: 30px;
+            }
+            QProgressBar::chunk { background-color: #27ae60; }
+        """)
+        
+        layout.addWidget(self.storage_bar)
+        
+        return frame
+    
+    def _create_preview_container(self) -> QFrame:
+        """Create the preview container with recording indicator."""
+        container = QFrame()
+        
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 10, 0)  # Right margin
+        layout.setSpacing(3)
+        
+        # Recording indicator with HTML dot (Fixes SNo 5)
+        self.recording_indicator = QLabel()
+        self.recording_indicator.setFont(QFont("Arial", 10, QFont.Bold))
+        self.recording_indicator.setTextFormat(Qt.RichText)
+        self._update_recording_indicator(visible=False)
+        self.recording_indicator.setAlignment(Qt.AlignLeft)
+        layout.addWidget(self.recording_indicator)
+        
+        # Preview label
+        self.preview_label = QLabel()
+        preview_size = self.Design.SIZES['preview']
+        self.preview_label.setFixedSize(preview_size[0], preview_size[1])
+        # Fixed: Removed setMinimumSize and setMaximumSize - they conflict with setFixedSize
+        # and cause Qt to ignore the fixed size, allowing preview to collapse
+        self.preview_label.setStyleSheet(f"""
+            QLabel {{
+                background-color: {self.Design.COLORS['preview_bg']};
+                border: 2px solid {self.Design.COLORS['border']};
+                border-radius: 5px;
+                color: {self.Design.COLORS['text_light']};
+            }}
+        """)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        
+        # Initialize preview buffer (Fixes SNo 14)
+        self.preview_buffer = QPixmap(preview_size[0], preview_size[1])
+        self.preview_buffer.fill(QColor(self.Design.COLORS['preview_bg']))
+        self.preview_label.setPixmap(self.preview_buffer)
+        
+        layout.addWidget(self.preview_label)
+        
+        return container
+    
+    # =========================================================================
+    # UI STYLE HELPERS
+    # =========================================================================
+    
+    def _get_info_button_style(self, has_info: bool) -> str:
+        """Get appropriate style for info button based on state."""
+        if has_info:
+            return f"""
+                QPushButton {{
+                    background-color: {self.Design.COLORS['info']};
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{ background-color: {self.Design.COLORS['info_hover']}; }}
+                QPushButton:pressed {{ background-color: {self.Design.COLORS['info_pressed']}; }}
+                QPushButton:disabled {{
+                    background-color: #95a5a6;
+                    color: #ecf0f1;
+                }}
+            """
+        else:
+            return f"""
+                QPushButton {{
+                    background-color: #7f8c8d;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{ background-color: #95a5a6; }}
+                QPushButton:disabled {{
+                    background-color: #bdc3c7;
+                    color: #ecf0f1;
+                }}
+            """
+    
+    def _get_record_button_style(self, is_recording: bool) -> str:
+        """Get appropriate style for record button."""
+        if is_recording:
+            return f"""
+                QPushButton {{
+                    background-color: {self.Design.COLORS['danger']};
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: {self.Design.SIZES['button_font']}px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{ background-color: {self.Design.COLORS['danger_hover']}; }}
+                QPushButton:pressed {{ background-color: {self.Design.COLORS['danger_pressed']}; }}
+                QPushButton:disabled {{
+                    background-color: #95a5a6;
+                    color: #ecf0f1;
+                }}
+            """
+        else:
+            return f"""
+                QPushButton {{
+                    background-color: {self.Design.COLORS['success']};
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: {self.Design.SIZES['button_font']}px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{ background-color: {self.Design.COLORS['success_hover']}; }}
+                QPushButton:pressed {{ background-color: {self.Design.COLORS['success_pressed']}; }}
+                QPushButton:disabled {{
+                    background-color: #95a5a6;
+                    color: #ecf0f1;
+                }}
+            """
+    
+    def _update_recording_indicator(self, visible: bool = True):
+        """Update recording indicator with stable HTML (Fixes SNo 5)."""
+        color = self.Design.COLORS['danger'] if visible else "transparent"
+        html = f'<span style="color: {color}; font-size: 14px;">●</span> Recording'
+        self.recording_indicator.setText(html)
+    
+    # =========================================================================
+    # STORAGE MANAGEMENT (Fixes SNo 3)
+    # =========================================================================
+    
+    def _start_storage_monitoring(self):
+        """Start periodic disk space monitoring."""
+        self.storage_timer = QTimer()
+        self.storage_timer.timeout.connect(self._update_storage_display)
+        self.storage_timer.start(self.Design.TIMINGS['storage_check'])
+        self._update_storage_display()  # Initial update
+    
+    def _update_storage_display(self):
+        """Update storage bar with real disk usage."""
+        try:
+            # Get disk usage for current drive
+            total, used, free = shutil.disk_usage("/")
+            percent_used = (used / total) * 100
+            
+            # Update progress bar
+            self.storage_bar.setValue(int(percent_used))
+            
+            # Format based on free space
+            free_gb = free / (1024**3)  # Convert to GB
+            free_mb = free / (1024**2)  # Convert to MB
+            
+            if free_gb > 1:
+                self.storage_bar.setFormat(f"{percent_used:.1f}% used ({free_gb:.1f} GB free)")
+            else:
+                self.storage_bar.setFormat(f"{percent_used:.1f}% used ({free_mb:.0f} MB free)")
+                
+                # Turn red if critically low (< 100 MB)
+                if free_mb < 100:
+                    self.storage_bar.setStyleSheet("""
+                        QProgressBar::chunk { background-color: #e74c3c; }
+                    """)
+                    self._show_status(
+                        f"⚠ CRITICAL: Only {free_mb:.0f} MB free",
+                        self.Design.COLORS['danger']
+                    )
+                elif free_mb < 500:
+                    self.storage_bar.setStyleSheet("""
+                        QProgressBar::chunk { background-color: #f39c12; }
+                    """)
+                else:
+                    self.storage_bar.setStyleSheet("""
+                        QProgressBar::chunk { background-color: #27ae60; }
+                    """)
+            
+            logger.info(f"Storage: {percent_used:.1f}% used, {free_gb:.1f} GB free")
+            
+        except Exception as e:
+            logger.error(f"Failed to get disk usage: {e}")
+            self.storage_bar.setFormat("Storage: unknown")
+    
+    def _check_storage_before_recording(self) -> bool:
+        """Check if enough disk space for recording."""
+        try:
+            total, used, free = shutil.disk_usage("/")
+            free_mb = free / (1024**2)
+            
+            if free_mb < 100:  # Less than 100 MB
+                reply = QMessageBox.warning(
+                    self,
+                    "Critical Low Disk Space",
+                    f"Only {free_mb:.0f} MB free!\n\n"
+                    "Recording will likely fail due to insufficient space.\n"
+                    "Free up space and try again.",
+                    QMessageBox.Ok
+                )
+                return False
+                
+            elif free_mb < 500:  # Less than 500 MB
+                reply = QMessageBox.question(
+                    self,
+                    "Low Disk Space",
+                    f"Only {free_mb:.0f} MB free.\n\n"
+                    "Recording may fail if disk fills up.\n"
+                    "Continue anyway?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                return reply == QMessageBox.Yes
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Storage check failed: {e}")
+            return True  # Allow recording, but log error
+    
+    # =========================================================================
+    # PREVIEW MANAGEMENT (Fixes SNo 7, SNo 14)
+    # =========================================================================
+    
+    def _check_camera_status(self):
+        """Check camera status and update placeholder."""
+        try:
+            # Try to get a test frame
+            test_frame = self.controller.get_current_frame()
+            
+            if test_frame is not None:
+                self._show_preview_placeholder('ready')
+            else:
+                self._show_preview_placeholder('no_camera')
+                
+        except Exception as e:
+            logger.error(f"Camera check failed: {e}")
+            self._show_preview_placeholder('error')
+    
+    def _show_preview_placeholder(self, state: str, **kwargs):
+        """Show informative placeholder in preview area."""
+        if state not in self.Design.PREVIEW_STATES:
+            state = 'ready'
+        
+        # Get message template
+        template = self.Design.PREVIEW_STATES[state]
+        
+        # Format with kwargs if provided
+        if kwargs:
+            try:
+                message = template.format(**kwargs)
+            except KeyError:
+                message = template
+        else:
+            message = template
+        
+        # Create placeholder pixmap
+        pixmap = QPixmap(self.preview_label.size())
+        pixmap.fill(QColor(self.Design.COLORS['preview_bg']))
+        
+        # Draw message
+        painter = QPainter(pixmap)
+        painter.setPen(QColor(self.Design.COLORS['text_light']))
+        painter.setFont(QFont("Arial", 10))
+        painter.drawText(pixmap.rect(), Qt.AlignCenter, message)
+        painter.end()
+        
+        self.preview_label.setPixmap(pixmap)
+    
+    def _show_countdown(self, seconds: int):
+        """Show countdown in preview before recording."""
+        pixmap = QPixmap(self.preview_label.size())
+        pixmap.fill(QColor(self.Design.COLORS['preview_bg']))
+        
+        painter = QPainter(pixmap)
+        painter.setPen(QColor(self.Design.COLORS['danger']))
+        painter.setFont(QFont("Arial", 48, QFont.Bold))
+        painter.drawText(pixmap.rect(), Qt.AlignCenter, str(seconds))
+        painter.end()
+        
+        self.preview_label.setPixmap(pixmap)
+    
+    # =========================================================================
+    # CRITICAL FIX: Poll for frames (works with your controller's get_current_frame)
+    # =========================================================================
+    def _update_preview_from_controller(self):
+        """Poll controller for latest frame (compatible with your recording_controller.py)."""
+        if self.controller.state != RecordingState.RECORDING:
+            return
+        
+        # Throttle frame rate
+        self.frame_counter += 1
+        if self.frame_counter % self.preview_skip_target != 0:
+            return
+        
+        # Get frame from controller (thread-safe)
+        frame = self.controller.get_current_frame()
+        if frame is None:
+            return
+        
+        try:
+            # Get original dimensions
+            h, w = frame.shape[:2]
+            
+            # Target preview size
+            target_w, target_h = self.Design.SIZES['preview']
+            
+            # Calculate scaling factor
+            scale = min(target_w / w, target_h / h)
+            
+            if scale < 1.0:
+                # Downscale for performance
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                small_frame = cv2.resize(frame, (new_w, new_h), 
+                                        interpolation=cv2.INTER_NEAREST)
+            else:
+                small_frame = frame
+            
+            # Convert BGR to RGB
+            rgb = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+            h, w = rgb.shape[:2]
+            
+            # Create QImage
+            bytes_per_line = 3 * w
+            q_img = QImage(rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            
+            # Scale to fit preview
+            pixmap = QPixmap.fromImage(q_img)
+            scaled = pixmap.scaled(
+                target_w - 4,  # Leave border margin
+                target_h - 4,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            
+            # Draw onto buffer (prevents flicker)
+            self.preview_buffer.fill(QColor(self.Design.COLORS['preview_bg']))
+            painter = QPainter(self.preview_buffer)
+            
+            # Center the image
+            x = (target_w - scaled.width()) // 2
+            y = (target_h - scaled.height()) // 2
+            painter.drawPixmap(x, y, scaled)
+            painter.end()
+            
+            # Update label
+            self.preview_label.setPixmap(self.preview_buffer)
+            
+        except Exception as e:
+            logger.error(f"Preview update failed: {e}")
+    
+    # =========================================================================
+    # RECORDING CONTROL
+    # =========================================================================
+    
+    def _toggle_recording(self):
+        """Toggle recording state (called by button and shortcuts)."""
+        if self.controller.state == RecordingState.IDLE:
+            self._start_recording()
+        elif self.controller.state == RecordingState.RECORDING:
+            self._stop_recording()
+    
+    def _start_recording(self):
+        """Start recording with countdown and storage check."""
+        # Check storage first (Fixes SNo 3)
+        if not self._check_storage_before_recording():
+            return
+        
+        # Safety check: voice mode should be clean
+        if self.voice_mode_active:
+            logger.warning(f"Voice mode was {self.voice_mode_active} at start - resetting")
+            self.voice_mode_active = False
+        
+        # Show countdown (Fixes SNo 14)
+        self.countdown = 3
+        self._show_countdown(self.countdown)
+        
+        # Start countdown timer
+        self.countdown_timer = QTimer()
+        self.countdown_timer.timeout.connect(self._update_countdown)
+        self.countdown_timer.start(1000)  # 1 second intervals
+    
+    def _update_countdown(self):
+        """Update countdown display."""
+        self.countdown -= 1
+        
+        if self.countdown <= 0:
+            self.countdown_timer.stop()
+            self._actually_start_recording()
+        else:
+            self._show_countdown(self.countdown)
+    
+    def _actually_start_recording(self):
+        """The real start after countdown."""
+        success, recording, error = self.controller.start_recording()
+        
+        if not success:
+            QMessageBox.critical(
+                self, 
+                "Recording Error", 
+                f"Cannot start recording:\n\n{error}"
+            )
+            self._show_preview_placeholder('ready')
+            return
+        
+        # Update UI for recording state
+        self.record_btn.setText("STOP RECORDING")
+        self.record_btn.setStyleSheet(self._get_record_button_style(is_recording=True))
+        
+        # Disable info button during recording
+        self.info_btn.setEnabled(False)
+        self.clear_btn.setEnabled(False)
+        
+        # Update status
+        self._show_status("Recording in Progress", self.Design.COLORS['danger'])
+        
+        # Show recording indicator and start blinking
+        self._update_recording_indicator(True)
+        self.dot_blink_timer = QTimer()
+        self.dot_blink_timer.timeout.connect(self._toggle_recording_indicator)
+        self.dot_blink_timer.start(self.Design.TIMINGS['dot_blink'])
+        self.dot_visible = True
+        
+        # Start timer updates (includes preview polling)
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self._update_timer_display)
+        self.update_timer.start(self.Design.TIMINGS['timer_update'])
+        
+        # Track start time for duration checks
+        self.recording_start_time = time.time()
+        
+        logger.info("Recording started")
+        self.recording_started.emit()
+
+    # =========================================================================
+    # END OF CHUNK 1 OF 2
+    # =========================================================================
+    """
+    CONTINUATION NOTE: 
+    This is the end of Chunk 1. Chunk 2 will contain:
+    - _stop_recording() method with duration-based confirmation
+    - _complete_stop() with metadata handling (patched for your metadata.py)
+    - _metadata_is_empty() helper method (replaces .is_empty())
+    - _show_undo_button() and undo functionality
+    - _toggle_recording_indicator() and timer display
+    - Metadata management methods (patched for your MetadataDialog)
+    - UI feedback utilities (_show_status, _reset_ui)
+    - Keyboard shortcuts and error handling
+    - Cleanup methods (closeEvent, _cleanup_resources)
+    - __all__ export
+    
+    Please append Chunk 2 to complete the file.
+    """
+        # =========================================================================
+    # CHUNK 2 OF 2 - CONTINUATION FROM _start_recording()
+    # =========================================================================
+    
+    def _stop_recording(self):
+        """Stop recording with smart confirmation based on duration (Fixes SNo 6, SNo 15)."""
+        # Capture voice mode before any operations (Fixes SNo 11)
+        was_voice_mode = self.voice_mode_active
+        
+        # Calculate duration
+        duration = 0
+        if self.recording_start_time:
+            duration = time.time() - self.recording_start_time
+        
+        # === STATE 1: FEEDBACK "STOPPING..." (Fixes SNo 6) ===
+        self.record_btn.setText("⏱ STOPPING...")
+        self.record_btn.setEnabled(False)
+        self._show_status("Stopping recording...", self.Design.COLORS['warning'])
+        QApplication.processEvents()  # Force UI update
+        
+        # Stop timers
+        if hasattr(self, 'update_timer'):
+            self.update_timer.stop()
+        if hasattr(self, 'dot_blink_timer'):
+            self.dot_blink_timer.stop()
+        
+        # === STATE 2: DURATION-BASED CONFIRMATION (Fixes SNo 15) ===
+        
+        # CASE 1: Very short recording (< min_recording)
+        if duration < self.Design.THRESHOLDS['min_recording']:
+            reply = QMessageBox.warning(
+                self,
+                "Discard Very Short Recording?",
+                f"Recording was only {duration:.1f} seconds.\n\n"
+                "This is too short to be useful.\n\n"
+                "Discard it completely?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes  # Default to discard
+            )
+            
+            if reply == QMessageBox.Yes:
+                # Discard recording entirely
+                logger.info(f"Discarded short recording ({duration:.1f}s)")
+                if hasattr(self.controller, 'cancel_recording'):
+                    self.controller.cancel_recording()
+                self._show_status("✗ Short recording discarded", self.Design.COLORS['danger'])
+                self.voice_mode_active = False  # Fixes SNo 11
+                self._reset_ui()
+                return
+            # else continue with normal save
+        
+        # CASE 2: Short but potentially useful recording
+        elif duration < self.Design.THRESHOLDS['confirm_until'] and not was_voice_mode:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Save",
+                f"Recording duration: {duration:.1f} seconds\n\n"
+                "Save this recording?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.No:
+                # Discard
+                logger.info(f"User discarded {duration:.1f}s recording")
+                if hasattr(self.controller, 'cancel_recording'):
+                    self.controller.cancel_recording()
+                self._show_status("✗ Recording discarded", self.Design.COLORS['danger'])
+                self.voice_mode_active = False  # Fixes SNo 11
+                self._reset_ui()
+                return
+        
+        # === STATE 3: ACTUAL STOP OPERATION ===
+        self._complete_stop(was_voice_mode, duration)
+    
+    def _complete_stop(self, was_voice_mode: bool, duration: float):
+        """Complete the stop process after confirmation."""
+        try:
+            # Stop the recording
+            success, recording, error = self.controller.stop_recording()
+            
+            if not success:
+                self._show_status("❌ Stop failed", self.Design.COLORS['danger'])
+                QMessageBox.critical(self, "Stop Error", f"Failed to stop:\n\n{error}")
+                self.voice_mode_active = False
+                self._reset_ui()
+                return
+            
+            # === STATE 4: SAVING FEEDBACK ===
+            self._show_status("💾 Saving recording...", self.Design.COLORS['info'])
+            QApplication.processEvents()
+            
+            # Handle metadata based on mode and existing data
+            has_metadata = not self._metadata_is_empty()
+            saved_with_metadata = False
+            
+            if has_metadata:
+                # Save metadata regardless of mode
+                from app.controllers.metadata_controller import MetadataController
+                meta_ctrl = MetadataController()
+                
+                # Apply metadata to recording first
+                self.metadata.apply_to_recording(recording)
+                
+                # Save to database
+                success, updated_recording, error = meta_ctrl.add_metadata(
+                    recording,
+                    self.metadata
+                )
+                
+                if success:
+                    saved_with_metadata = True
+                    self._show_status("✓ Recording saved with info", self.Design.COLORS['success'])
+                    logger.info(f"Recording saved with metadata for: {self.metadata.patient_name}")
+                else:
+                    self._show_status("⚠ Video saved, metadata failed", self.Design.COLORS['warning'])
+                    logger.error(f"Metadata save failed: {error}")
+            
+            elif not was_voice_mode:
+                # Manual mode - show dialog (NO existing_metadata parameter)
+                self._show_status("📋 Enter recording info...", self.Design.COLORS['info'])
+                dialog = MetadataDialog(recording, self)  # Just recording, no existing_metadata
+                
+                if dialog.exec_():
+                    saved_with_metadata = True
+                    # Get metadata from dialog but don't overwrite our local copy
+                    dialog_metadata = dialog.get_metadata()
+                    # Update our local metadata with dialog values
+                    self.metadata.patient_name = dialog_metadata.patient_name
+                    self.metadata.procedure = dialog_metadata.procedure
+                    self.metadata.operating_theatre = dialog_metadata.operating_theatre
+                    self.metadata.surgeon_name = dialog_metadata.surgeon_name
+                    self._show_status("✓ Recording saved with info", self.Design.COLORS['success'])
+                else:
+                    self._show_status("✓ Recording saved (no info)", self.Design.COLORS['success'])
+            
+            else:
+                # Voice mode - silent save without info
+                self._show_status("✓ Recording saved (voice mode)", self.Design.COLORS['success'])
+                logger.info("Recording saved (voice mode, no info)")
+            
+            # Store path for potential undo
+            if recording and hasattr(recording, 'filepath'):
+                self.last_recording_path = recording.filepath
+                self.recording_stopped.emit(recording.filepath)
+            
+            # Show save confirmation in preview (Fixes SNo 14)
+            if recording and hasattr(recording, 'duration_seconds'):
+                duration_str = self.timer_label.text()
+                size_str = "Unknown"  # Your recording object might not have size_mb
+                if hasattr(recording, 'file_size'):
+                    size_str = f"{recording.file_size / (1024*1024):.1f} MB"
+                self._show_preview_placeholder(
+                    'saved', 
+                    duration=duration_str,
+                    size=size_str
+                )
+            
+            # Show undo button for short recordings (optional)
+            if duration < self.Design.THRESHOLDS['confirm_until'] and not was_voice_mode:
+                self._show_undo_button()
+            
+            # Brief pause to show success message
+            QTimer.singleShot(self.Design.TIMINGS['confirmation_delay'], self._reset_ui)
+            
+        except Exception as e:
+            logger.error(f"Error during stop completion: {e}")
+            self._show_status("❌ Error during save", self.Design.COLORS['danger'])
+            QMessageBox.critical(self, "Save Error", f"Error saving recording:\n\n{str(e)}")
+            self._reset_ui()
+        
+        finally:
+            # GUARANTEED CLEANUP (Fixes SNo 11)
+            self.metadata = RecordingMetadata()
+            self.voice_mode_active = False
+            self.recording_start_time = None
+    
+    # =========================================================================
+    # CRITICAL FIX: Replace is_empty() with compatible method
+    # =========================================================================
+    def _metadata_is_empty(self) -> bool:
+        """
+        Check if metadata has any content.
+        Compatible with your existing metadata.py (no is_empty method).
+        """
+        # Check if any field has meaningful content
+        has_content = False
+        
+        if self.metadata.patient_name and self.metadata.patient_name.strip():
+            has_content = True
+        if self.metadata.procedure and self.metadata.procedure.strip() and self.metadata.procedure != "Other":
+            has_content = True
+        if self.metadata.operating_theatre and self.metadata.operating_theatre.strip():
+            has_content = True
+        if self.metadata.surgeon_name and self.metadata.surgeon_name.strip():
+            has_content = True
+        if self.metadata.notes and self.metadata.notes.strip():
+            has_content = True
+            
+        return not has_content
+    
+    def _show_undo_button(self):
+        """Show undo option after accidental stop."""
+        # Create undo button if it doesn't exist
+        if not hasattr(self, 'undo_btn'):
+            self.undo_btn = QPushButton("↩ Undo Save")
+            self.undo_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f39c12;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 8px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #e67e22; }
+            """)
+            self.undo_btn.clicked.connect(self._undo_last_save)
+            
+            # Add to layout (below status, above timer)
+            layout = self.layout()
+            layout.insertWidget(2, self.undo_btn)
+        
+        self.undo_btn.show()
+        
+        # Auto-hide after timeout
+        if hasattr(self, 'undo_timer'):
+            self.undo_timer.stop()
+        self.undo_timer = QTimer()
+        self.undo_timer.setSingleShot(True)
+        self.undo_timer.timeout.connect(self.undo_btn.hide)
+        self.undo_timer.start(self.Design.TIMINGS['undo_timeout'])
+    
+    def _undo_last_save(self):
+        """Delete the last saved recording."""
+        if self.last_recording_path and os.path.exists(self.last_recording_path):
+            try:
+                os.remove(self.last_recording_path)
+                logger.info(f"Undo: deleted {self.last_recording_path}")
+                self._show_status("✓ Recording deleted (undo)", self.Design.COLORS['success'])
+                self.undo_btn.hide()
+                
+                # Update preview
+                self._show_preview_placeholder('ready')
+                
+            except Exception as e:
+                logger.error(f"Undo failed: {e}")
+                self._show_status("❌ Undo failed", self.Design.COLORS['danger'])
+    
+    def _toggle_recording_indicator(self):
+        """Toggle red dot visibility for pulsating effect."""
+        self.dot_visible = not self.dot_visible
+        self._update_recording_indicator(self.dot_visible)
+    
+    def _update_timer_display(self):
+        """Update timer with color coding for short recordings."""
+        if not self.recording_start_time:
+            return
+        
+        elapsed = int(time.time() - self.recording_start_time)
+        hours = elapsed // 3600
+        mins = (elapsed % 3600) // 60
+        secs = elapsed % 60
+        time_str = f"{hours:02d}:{mins:02d}:{secs:02d}"
+        
+        # Color code based on duration (Fixes SNo 15)
+        if elapsed < self.Design.THRESHOLDS['min_recording']:
+            # Too short - red
+            self.timer_label.setStyleSheet(f"color: {self.Design.COLORS['danger']};")
+        elif elapsed < self.Design.THRESHOLDS['confirm_until']:
+            # Short but savable - orange
+            self.timer_label.setStyleSheet(f"color: {self.Design.COLORS['warning']};")
+        else:
+            # Good duration - normal
+            self.timer_label.setStyleSheet(f"color: {self.Design.COLORS['text_primary']};")
+        
+        self.timer_label.setText(time_str)
+        
+        # Also update preview by polling controller
+        self._update_preview_from_controller()
+    
+    # =========================================================================
+    # METADATA MANAGEMENT (Patched for your MetadataDialog)
+    # =========================================================================
+    
+    def _show_info_dialog(self):
+        """Show recording info dialog with validation."""
+        # NO existing_metadata parameter - compatible with your MetadataDialog
+        dialog = MetadataDialog(None, self)
+        
+        # If we have existing metadata, pre-populate dialog fields
+        if not self._metadata_is_empty():
+            # Access dialog's widgets directly to set values
+            if hasattr(dialog, 'patient_input'):
+                dialog.patient_input.setText(self.metadata.patient_name or "")
+            if hasattr(dialog, 'procedure_combo'):
+                index = dialog.procedure_combo.findText(self.metadata.procedure or "")
+                if index >= 0:
+                    dialog.procedure_combo.setCurrentIndex(index)
+            if hasattr(dialog, 'ot_combo'):
+                index = dialog.ot_combo.findText(self.metadata.operating_theatre or "")
+                if index >= 0:
+                    dialog.ot_combo.setCurrentIndex(index)
+            if hasattr(dialog, 'consultant_input'):
+                dialog.consultant_input.setText(self.metadata.surgeon_name or "")
+        
+        if dialog.exec_():
+            # Get new metadata from dialog
+            new_metadata = dialog.get_metadata()
+            
+            # Update our metadata
+            self.metadata.patient_name = new_metadata.patient_name
+            self.metadata.procedure = new_metadata.procedure
+            self.metadata.operating_theatre = new_metadata.operating_theatre
+            self.metadata.surgeon_name = new_metadata.surgeon_name
+            
+            # Update UI based on content
+            if self._metadata_is_empty():
+                self._show_status("Ready to Record (no info)", self.Design.COLORS['text_secondary'])
+                self.info_display.setText("")
+                self.info_btn.setText("Add Info")
+                self.info_btn.setStyleSheet(self._get_info_button_style(has_info=False))
+                self.clear_btn.setVisible(False)
+                logger.info("Recording info cleared")
+            else:
+                self._show_status("✓ Info Added - Ready to Record", self.Design.COLORS['success'])
+                self._update_info_display()
+                self.info_btn.setText("Edit Info")
+                self.info_btn.setStyleSheet(self._get_info_button_style(has_info=True))
+                self.clear_btn.setVisible(True)
+                logger.info(f"Recording info updated for: {self.metadata.patient_name}")
+    
+    def _confirm_clear_info(self):
+        """Confirm before clearing all info."""
+        if self._metadata_is_empty():
+            self.clear_btn.setVisible(False)
+            return
+        
+        # Show patient name in confirmation
+        patient_text = f"Patient: {self.metadata.patient_name or 'Not specified'}"
+        procedure_text = f"Procedure: {self.metadata.procedure or 'Not specified'}"
+        
+        reply = QMessageBox.question(
+            self,
+            "Clear Information",
+            f"Remove all patient information?\n\n{patient_text}\n{procedure_text}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            self.metadata = RecordingMetadata()  # Empty, validated
+            self.info_display.setText("")
+            self.clear_btn.setVisible(False)
+            self.info_btn.setText("Add Info")
+            self.info_btn.setStyleSheet(self._get_info_button_style(has_info=False))
+            self._show_status("Info cleared", self.Design.COLORS['text_secondary'])
+            logger.info("Recording info cleared by user")
+    
+    def _update_info_display(self):
+        """Update the info display text."""
+        if self.metadata.patient_name and self.metadata.patient_name.strip():
+            display = f"Patient: {self.metadata.patient_name}"
+            if self.metadata.procedure and self.metadata.procedure.strip():
+                display += f" | {self.metadata.procedure}"
+            self.info_display.setText(display)
+        else:
+            self.info_display.setText("")
+    
+    # =========================================================================
+    # UI FEEDBACK UTILITIES
+    # =========================================================================
+    
+    def _show_status(self, message: str, color: str, auto_clear: bool = True):
+        """Show status message with auto-clear option."""
+        self.status_label.setText(message)
+        self.status_label.setStyleSheet(f"color: {color};")
+        
+        if auto_clear and color != self.Design.COLORS['danger']:
+            # Don't auto-clear errors
+            if hasattr(self, 'status_clear_timer'):
+                self.status_clear_timer.stop()
+            self.status_clear_timer = QTimer()
+            self.status_clear_timer.setSingleShot(True)
+            self.status_clear_timer.timeout.connect(self._restore_status)
+            self.status_clear_timer.start(self.Design.TIMINGS['status_clear'])
+    
+    def _restore_status(self):
+        """Restore status based on current state."""
+        if self.controller.state == RecordingState.RECORDING:
+            self.status_label.setText("Recording in Progress")
+            self.status_label.setStyleSheet(f"color: {self.Design.COLORS['danger']};")
+        else:
+            has_info = not self._metadata_is_empty()
+            if has_info:
+                self.status_label.setText("Ready to Record (info added)")
+                self.status_label.setStyleSheet(f"color: {self.Design.COLORS['success']};")
+            else:
+                self.status_label.setText("Ready to Record")
+                self.status_label.setStyleSheet(f"color: {self.Design.COLORS['danger']};")
+    
+    def _reset_ui(self):
+        """Reset UI to idle state."""
+        # Reset button
+        self.record_btn.setText("START RECORDING")
+        self.record_btn.setEnabled(True)
+        self.record_btn.setStyleSheet(self._get_record_button_style(is_recording=False))
+        
+        # Re-enable info buttons
+        self.info_btn.setEnabled(True)
+        self.clear_btn.setEnabled(True)
+        
+        # Hide recording indicator
+        self._update_recording_indicator(False)
+        
+        # Stop all timers
+        for timer_name in ['update_timer', 'dot_blink_timer', 'countdown_timer']:
+            timer = getattr(self, timer_name, None)
+            if timer and timer.isActive():
+                timer.stop()
+        
+        # Reset timer
+        self.timer_label.setText("00:00:00")
+        self.timer_label.setStyleSheet(f"color: {self.Design.COLORS['text_primary']};")
+        
+        # Show appropriate placeholder
+        self._check_camera_status()
+        
+        # Hide undo button if visible
+        if hasattr(self, 'undo_btn') and self.undo_btn.isVisible():
+            self.undo_btn.hide()
+        
+        # Restore status
+        self._restore_status()
+        
+        # Clear recording start time
+        self.recording_start_time = None
+        
+        logger.debug("UI reset to idle state")
+    
+    # =========================================================================
+    # KEYBOARD SHORTCUTS (Fixes SNo 13)
+    # =========================================================================
+    
+    def _setup_shortcuts(self):
+        """Setup keyboard shortcuts."""
+        from PyQt5.QtWidgets import QShortcut
+        from PyQt5.QtGui import QKeySequence
+        
+        # Space toggles recording
+        self.space_shortcut = QShortcut(QKeySequence(Qt.Key_Space), self)
+        self.space_shortcut.activated.connect(self._toggle_recording)
+        
+        # Ctrl+I for info dialog
+        self.info_shortcut = QShortcut(QKeySequence("Ctrl+I"), self)
+        self.info_shortcut.activated.connect(self._show_info_dialog)
+        
+        # Ctrl+L to clear info
+        self.clear_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
+        self.clear_shortcut.activated.connect(self._confirm_clear_info)
+        
+        # F1 for help
+        self.help_shortcut = QShortcut(QKeySequence(Qt.Key_F1), self)
+        self.help_shortcut.activated.connect(self._show_help)
+        
+        # Escape - stop recording if active
+        self.escape_shortcut = QShortcut(QKeySequence(Qt.Key_Escape), self)
+        self.escape_shortcut.activated.connect(self._handle_escape)
+        
+        # Set tooltips with shortcuts
+        self.record_btn.setToolTip("Start/Stop recording (Space)")
+        self.info_btn.setToolTip("Add/Edit patient information (Ctrl+I)")
+        self.clear_btn.setToolTip("Clear all information (Ctrl+L)")
+    
+    def keyPressEvent(self, event):
+        """Handle additional keyboard events."""
+        # Enter/Return when focused on record button
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            if self.record_btn.hasFocus():
+                self._toggle_recording()
+                return
+        
+        super().keyPressEvent(event)
+    
+    def _handle_escape(self):
+        """Handle Escape key based on context."""
+        if self.controller.state == RecordingState.RECORDING:
+            # Ask before stopping
+            reply = QMessageBox.question(
+                self,
+                "Stop Recording?",
+                "Stop current recording?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self._stop_recording()
+    
+    def _show_help(self):
+        """Show help dialog."""
+        QMessageBox.information(
+            self,
+            "Recording Screen Help",
+            "Keyboard Shortcuts:\n"
+            "• Space: Start/Stop recording\n"
+            "• Ctrl+I: Add/Edit patient info\n"
+            "• Ctrl+L: Clear patient info\n"
+            "• Esc: Stop recording (when active)\n"
+            "• F1: This help\n\n"
+            "Voice Mode:\n"
+            "• When started by voice, saves silently\n"
+            "• Manual mode shows metadata dialog\n\n"
+            "Recording Rules:\n"
+            "• <3s: Ask to discard\n"
+            "• 3-30s: Confirm save\n"
+            "• >30s: Auto-save"
+        )
+    
+    # =========================================================================
+    # ERROR HANDLING
+    # =========================================================================
+    
+    def _handle_recording_error(self, error_msg: str):
+        """Handle recording thread errors."""
+        logger.error(f"Recording error: {error_msg}")
+        self._show_status(f"⚠ Error: {error_msg}", self.Design.COLORS['danger'])
+        
+        QMessageBox.critical(
+            self,
+            "Recording Error",
+            f"Recording stopped unexpectedly:\n\n{error_msg}"
+        )
+        
+        self.voice_mode_active = False
+        self._reset_ui()
+        self.error_occurred.emit(error_msg)
+    
+    # =========================================================================
+    # CLEANUP (Fixes SNo 10)
+    # =========================================================================
+    
+    def closeEvent(self, event):
+        """Clean up when widget is closed."""
+        logger.info("Cleaning up RecordingScreen...")
+        self._cleanup_resources()
+        event.accept()
+    
+    def _cleanup_resources(self):
+        """Safely release all resources."""
+        if self._cleaned_up:
+            return
+        
+        logger.debug("Releasing resources...")
+        
+        # Stop all timers
+        for timer_name in ['update_timer', 'dot_blink_timer', 'storage_timer', 
+                          'countdown_timer', 'status_clear_timer', 'undo_timer']:
+            timer = getattr(self, timer_name, None)
+            if timer and timer.isActive():
+                timer.stop()
+        
+        # Stop recording if active
+        if hasattr(self, 'controller') and self.controller.state == RecordingState.RECORDING:
+            logger.warning("Cleaning up during active recording - stopping...")
+            self.controller.stop_recording()
+        
+        # Clean up controller (if it has cleanup method)
+        if hasattr(self, 'controller') and hasattr(self.controller, 'cleanup'):
+            self.controller.cleanup()
+        
+        # Clear preview to free memory
+        self.preview_buffer = QPixmap()
+        self.preview_label.clear()
+        
+        self._cleaned_up = True
+        logger.info("RecordingScreen cleaned up")
+    
+    def __del__(self):
+        """Fallback destructor."""
+        self._cleanup_resources()
+
+
+# =============================================================================
+# EXPORTS
+# =============================================================================
+
+__all__ = ['RecordingScreen']
+
+# =============================================================================
+# END OF CHUNK 2 OF 2 - FILE COMPLETE
+# =============================================================================

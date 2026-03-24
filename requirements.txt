@@ -1,0 +1,58 @@
+
+## REQUIREMENTS FILE
+#**File: requirements.txt**
+# OT Video System Requirements
+
+#Python 3.9+
+
+# GUI Framework
+PyQt5==5.15.9
+
+# Video Processing
+opencv-python==4.8.1.78
+opencv-contrib-python==4.8.1.78
+numpy<2.0.0  # OpenCV compatibility
+
+# Image Processing
+# 10.1.0
+Pillow==10.4.0
+
+# Audio
+pyaudio==0.2.14
+#pygame==2.5.2
+
+# Voice Recognition (Offline)
+vosk==0.3.45
+
+# Database
+# sqlite3 (built-in)
+
+# Utilities
+python-dateutil==2.8.2
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RTC (Real-Time Clock) Support - DS3231 Module
+# ═══════════════════════════════════════════════════════════════════════════
+# smbus2: I2C communication library for DS3231 RTC module
+# Only installed on Linux (Raspberry Pi) - not needed on Windows/Mac
+# 
+# The DS3231 provides battery-backed accurate timekeeping for air-gapped
+# systems without internet/NTP access. Critical for medical record timestamps.
+#
+# Hardware Requirements (Raspberry Pi only):
+# - DS3231 RTC module connected via I2C (GPIO pins 3 & 5)
+# - I2C enabled: sudo raspi-config → Interface Options → I2C
+# - CR2032 battery installed in DS3231
+#
+# Installation (automatic on Linux):
+#   pip install -r requirements.txt
+#
+# Manual installation (if needed):
+#   pip install smbus2
+#
+# Verification:
+#   sudo i2cdetect -y 1
+#   (Should show '68' at address 0x68 if DS3231 connected)
+# ═══════════════════════════════════════════════════════════════════════════
+smbus2==0.4.3; platform_system == "Linux"
+

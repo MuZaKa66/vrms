@@ -1,0 +1,169 @@
+"""
+File: app/services/video_capture_service.py
+
+Module Description:
+    USB video capture service for CVBS microscope input.
+    
+    Professional error handling for busy medical environment:
+    - Auto-detect and open camera device
+    - Clear errors (device not found, busy, disconnected)
+    - Auto-retry on transient failures
+    - Frame capture with validation
+    - Device health monitoring
+
+Dependencies:
+    - cv2 (OpenCV): Video capture via V4L2
+    - numpy: Frame arrays
+    - config: Device settings
+
+Author: OT Video Dev Team
+Date: January 30, 2026
+Version: 1.0.0
+"""
+
+import cv2
+import time
+from typing import Tuple, Optional, Dict
+import numpy as np
+from pathlib import Path
+
+from config.app_config import VIDEO_DEVICE, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS
+from app.utils.logger import AppLogger
+from app.utils.decorators import log_errors, retry
+
+logger = AppLogger("VideoCaptureService")
+
+
+class VideoCaptureService:
+    """
+    USB video capture service.
+    
+    Captures frames from USB video device (CVBS microscope input).
+    
+    Methods:
+        open(): Open camera device
+        close(): Close device
+        read_frame(): Capture single frame
+        is_available(): Check device exists
+        get_info(): Get device capabilities
+    
+    Example:
+        >>> capture = VideoCaptureService()
+        >>> success, _, error = capture.open()
+        >>> if success:
+        ...     success, frame, error = capture.read_frame()
+        ...     if success:
+        ...         # Use frame
+        ...         pass
+        ...     capture.close()
+    """
+    
+    def __init__(self, device_path: str = VIDEO_DEVICE):
+        self.device_path = device_path
+        self.width = VIDEO_WIDTH
+        self.height = VIDEO_HEIGHT
+        self.fps = VIDEO_FPS
+        self.capture = None
+        self.is_open = False
+        
+        logger.info(f"Video capture initialized: {device_path}")
+    
+    @log_errors
+    @retry(max_attempts=3, delay=1.0)
+    def open(self) -> Tuple[bool, None, Optional[str]]:
+        """
+        Open video capture device.
+        
+        Returns:
+            tuple: (success, None, error_message)
+        """
+        if self.is_open and self.capture is not None:
+            return True, None, None
+        
+        try:
+            # Check device exists
+            if not Path(self.device_path).exists():
+                return False, None, (
+                    "Camera not found. "
+                    "Please check USB connection and try again."
+                )
+            
+            # Open device
+            self.capture = cv2.VideoCapture(self.device_path, cv2.CAP_V4L2)
+            
+            if not self.capture.isOpened():
+                return False, None, (
+                    "Cannot open camera. "
+                    "Device may be in use. Please restart the application."
+                )
+            
+            # Configure
+            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+            self.capture.set(cv2.CAP_PROP_FPS, self.fps)
+            
+            # Warm up (discard first frames)
+            for _ in range(5):
+                self.capture.read()
+                time.sleep(0.05)
+            
+            self.is_open = True
+            logger.info("Camera opened successfully")
+            return True, None, None
+        
+        except Exception as e:
+            logger.error(f"Camera error: {e}")
+            return False, None, "Camera initialization failed. Please reconnect USB cable."
+    
+    @log_errors
+    def read_frame(self) -> Tuple[bool, Optional[np.ndarray], Optional[str]]:
+        """
+        Capture single frame.
+        
+        Returns:
+            tuple: (success, frame_array, error_message)
+        """
+        if not self.is_open or self.capture is None:
+            return False, None, "Camera not ready. Please start recording first."
+        
+        try:
+            ret, frame = self.capture.read()
+            
+            if not ret or frame is None:
+                return False, None, "Frame capture failed. Check camera connection."
+            
+            return True, frame, None
+        
+        except Exception as e:
+            logger.error(f"Frame read error: {e}")
+            return False, None, "Camera disconnected. Please reconnect."
+    
+    def close(self):
+        """Close camera device."""
+        if self.capture is not None:
+            self.capture.release()
+            self.capture = None
+            self.is_open = False
+            logger.info("Camera closed")
+    
+    def is_available(self) -> bool:
+        """Check if device exists."""
+        return Path(self.device_path).exists()
+    
+    def get_info(self) -> Dict:
+        """Get device information."""
+        if not self.is_open:
+            return {}
+        
+        return {
+            'width': int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            'height': int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            'fps': int(self.capture.get(cv2.CAP_PROP_FPS)),
+            'is_open': self.is_open
+        }
+    
+    def __del__(self):
+        self.close()
+
+
+__all__ = ['VideoCaptureService']

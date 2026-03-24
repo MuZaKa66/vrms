@@ -1,0 +1,186 @@
+"""
+File: app/services/system_monitor_service.py
+
+Module Description:
+    System health monitoring service.
+    
+    Monitors:
+    - CPU temperature
+    - Memory usage
+    - Storage space
+    - System health warnings
+
+Dependencies:
+    - psutil: System monitoring
+
+Author: OT Video Dev Team
+Date: January 30, 2026
+Version: 1.0.0
+"""
+
+from typing import Tuple, Optional, Dict
+import subprocess
+
+from app.utils.logger import AppLogger
+from app.utils.file_utils import get_free_space_gb
+from app.utils.decorators import log_errors
+
+logger = AppLogger("SystemMonitorService")
+
+
+class SystemMonitorService:
+    """
+    System monitoring service.
+    
+    Methods:
+        get_cpu_temperature(): Get CPU temp in Celsius
+        get_memory_usage(): Get memory stats
+        get_system_health(): Get overall health status
+    
+    Example:
+        >>> monitor = SystemMonitorService()
+        >>> 
+        >>> # Check temperature
+        >>> success, temp, error = monitor.get_cpu_temperature()
+        >>> if temp > 70:
+        ...     print("Warning: High temperature!")
+        >>> 
+        >>> # Get health status
+        >>> success, health, error = monitor.get_system_health()
+        >>> print(health['status'])  # 'healthy', 'warning', 'critical'
+    """
+    
+    @log_errors
+    def get_cpu_temperature(self) -> Tuple[bool, float, Optional[str]]:
+        """
+        Get CPU temperature in Celsius.
+        
+        Returns:
+            tuple: (success, temperature, error_message)
+        """
+        try:
+            # Raspberry Pi CPU temp command
+            result = subprocess.run(
+                ['vcgencmd', 'measure_temp'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            
+            # Parse output: temp=45.0'C
+            temp_str = result.stdout.strip()
+            temp = float(temp_str.split('=')[1].split("'")[0])
+            
+            return True, temp, None
+        
+        except Exception as e:
+            logger.error(f"Temperature read error: {e}")
+            return False, 0.0, "Could not read CPU temperature"
+    
+    @log_errors
+    def get_memory_usage(self) -> Tuple[bool, Dict, Optional[str]]:
+        """
+        Get memory usage statistics.
+        
+        Returns:
+            tuple: (success, memory_info_dict, error_message)
+        """
+        try:
+            # Read /proc/meminfo
+            with open('/proc/meminfo', 'r') as f:
+                meminfo = f.read()
+            
+            # Parse memory info
+            mem_total = 0
+            mem_available = 0
+            
+            for line in meminfo.split('\n'):
+                if 'MemTotal:' in line:
+                    mem_total = int(line.split()[1]) / 1024  # Convert to MB
+                elif 'MemAvailable:' in line:
+                    mem_available = int(line.split()[1]) / 1024
+            
+            mem_used = mem_total - mem_available
+            mem_percent = (mem_used / mem_total * 100) if mem_total > 0 else 0
+            
+            info = {
+                'total_mb': mem_total,
+                'used_mb': mem_used,
+                'available_mb': mem_available,
+                'percent_used': mem_percent
+            }
+            
+            return True, info, None
+        
+        except Exception as e:
+            logger.error(f"Memory read error: {e}")
+            return False, {}, "Could not read memory usage"
+    
+    @log_errors
+    def get_system_health(self) -> Tuple[bool, Dict, Optional[str]]:
+        """
+        Get overall system health status.
+        
+        Returns:
+            tuple: (success, health_dict, error_message)
+                  health_dict contains:
+                  - status: 'healthy', 'warning', 'critical'
+                  - temperature: CPU temp
+                  - memory_percent: Memory usage %
+                  - storage_gb: Free storage
+                  - warnings: List of warning messages
+        """
+        try:
+            warnings = []
+            status = 'healthy'
+            
+            # Check temperature
+            success, temp, _ = self.get_cpu_temperature()
+            if success:
+                if temp > 80:
+                    status = 'critical'
+                    warnings.append(f"Critical temperature: {temp}°C")
+                elif temp > 70:
+                    if status == 'healthy':
+                        status = 'warning'
+                    warnings.append(f"High temperature: {temp}°C")
+            
+            # Check memory
+            success, mem, _ = self.get_memory_usage()
+            memory_percent = mem.get('percent_used', 0) if success else 0
+            
+            if memory_percent > 90:
+                status = 'critical'
+                warnings.append(f"Critical memory usage: {memory_percent:.1f}%")
+            elif memory_percent > 80:
+                if status == 'healthy':
+                    status = 'warning'
+                warnings.append(f"High memory usage: {memory_percent:.1f}%")
+            
+            # Check storage
+            storage_gb = get_free_space_gb("/mnt/videostore")
+            
+            if storage_gb < 5:
+                status = 'critical'
+                warnings.append(f"Critical storage: {storage_gb:.1f} GB")
+            elif storage_gb < 10:
+                if status == 'healthy':
+                    status = 'warning'
+                warnings.append(f"Low storage: {storage_gb:.1f} GB")
+            
+            health = {
+                'status': status,
+                'temperature': temp if success else 0,
+                'memory_percent': memory_percent,
+                'storage_gb': storage_gb,
+                'warnings': warnings
+            }
+            
+            return True, health, None
+        
+        except Exception as e:
+            logger.error(f"Health check error: {e}")
+            return False, {}, "System health check failed"
+
+
+__all__ = ['SystemMonitorService']

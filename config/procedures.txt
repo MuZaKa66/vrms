@@ -1,0 +1,200 @@
+# OT Video Recording System - Procedure List
+# Lahore General Hospital - Eye Department
+#
+# FORMAT: One procedure per line
+# MANAGEMENT: Settings → Advanced Settings → Manage Procedures
+# MANAGED BY: Department Head / Senior Physician only
+#
+# Last Updated: February 17, 2026
+# Updated By: ZKB
+#
+# ─────────────────────────────────────────────
+# INSTRUCTIONS:
+# - Add new procedures on a new line
+# - Lines starting with # are comments (ignored)
+# - Blank lines are ignored
+# - Save file after editing
+# ─────────────────────────────────────────────
+
+# ══════════════════════════════════════
+# ANTERIOR SEGMENT - CATARACT
+# ══════════════════════════════════════
+Phacoemulsification (Phaco)
+Phaco + IOL Implantation
+Manual Small Incision Cataract Surgery (MSICS)
+Extracapsular Cataract Extraction (ECCE)
+Intracapsular Cataract Extraction (ICCE)
+Intraocular Lens (IOL) Implantation
+IOL Exchange
+Secondary IOL Implantation
+Anterior Vitrectomy
+Capsulotomy (YAG Laser)
+Phaco - Complicated Case
+Paediatric Cataract Surgery
+
+# ══════════════════════════════════════
+# ANTERIOR SEGMENT - CORNEA
+# ══════════════════════════════════════
+Penetrating Keratoplasty (PKP)
+Deep Anterior Lamellar Keratoplasty (DALK)
+Descemet Membrane Endothelial Keratoplasty (DMEK)
+Descemet Stripping Automated Endothelial Keratoplasty (DSAEK)
+Corneal Biopsy
+Corneal Tattooing
+Pterygium Excision
+Pterygium Excision with Graft
+Superficial Keratectomy
+Corneal Suturing
+Corneal Foreign Body Removal
+
+# ══════════════════════════════════════
+# ANTERIOR SEGMENT - GLAUCOMA
+# ══════════════════════════════════════
+Trabeculectomy
+Trabeculectomy with MMC
+Ahmed Valve Implantation
+Baerveldt Implant
+Molteno Implant
+Goniotomy
+Trabeculotomy
+iStent Implantation
+Cyclophotocoagulation (Laser)
+Peripheral Iridotomy (Laser)
+Iridectomy
+Anterior Chamber Washout
+Hyphema Washout
+
+# ══════════════════════════════════════
+# POSTERIOR SEGMENT - VITREORETINAL
+# ══════════════════════════════════════
+Pars Plana Vitrectomy (PPV) - 23G
+Pars Plana Vitrectomy (PPV) - 25G
+Pars Plana Vitrectomy (PPV) - 27G
+Retinal Detachment Repair (PPV)
+Scleral Buckle
+Scleral Buckle + PPV
+Macular Hole Repair
+Epiretinal Membrane Peeling
+Diabetic Vitrectomy
+Vitreous Haemorrhage Clearance
+Silicone Oil Injection
+Silicone Oil Removal
+Gas Tamponade (C3F8)
+Gas Tamponade (SF6)
+Subretinal Membrane Removal
+Retinectomy
+Choroidal Biopsy
+
+# ══════════════════════════════════════
+# POSTERIOR SEGMENT - INJECTIONS/LASER
+# ══════════════════════════════════════
+Intravitreal Injection (Avastin)
+Intravitreal Injection (Lucentis)
+Intravitreal Injection (Eylea)
+Intravitreal Injection (Ozurdex)
+Intravitreal Antibiotic Injection
+Pan Retinal Photocoagulation (PRP)
+Focal Laser Photocoagulation
+Grid Laser Photocoagulation
+Retinopathy of Prematurity (ROP) Laser
+Photodynamic Therapy (PDT)
+
+# ══════════════════════════════════════
+# OCULOPLASTICS - EYELID
+# ══════════════════════════════════════
+Ptosis Repair (Levator Resection)
+Ptosis Repair (Frontalis Sling)
+Entropion Repair
+Ectropion Repair
+Lid Laceration Repair
+Chalazion Excision
+Hordeolum Drainage
+Trichiasis Treatment
+Tarsorrhaphy
+Canthotomy
+Canthoplasty
+Blepharoplasty (Upper)
+Blepharoplasty (Lower)
+Eyelid Tumour Excision
+Eyelid Reconstruction
+
+# ══════════════════════════════════════
+# OCULOPLASTICS - LACRIMAL
+# ══════════════════════════════════════
+Dacryocystorhinostomy (DCR) - External
+Dacryocystorhinostomy (DCR) - Endoscopic
+Probing and Syringing
+Lacrimal Sac Biopsy
+Punctoplasty
+Canaliculotomy
+
+# ══════════════════════════════════════
+# OCULOPLASTICS - ORBIT & GLOBE
+# ══════════════════════════════════════
+Enucleation
+Evisceration
+Exenteration
+Orbital Fracture Repair
+Orbital Decompression
+Orbital Biopsy
+Orbital Foreign Body Removal
+Proptosis Workup
+Implant Exchange
+
+# ══════════════════════════════════════
+# STRABISMUS
+# ══════════════════════════════════════
+Strabismus Surgery - Recession
+Strabismus Surgery - Resection
+Strabismus Surgery - Recession + Resection
+Adjustable Suture Strabismus
+Botulinum Toxin Injection
+Nystagmus Surgery
+
+# ══════════════════════════════════════
+# PAEDIATRIC OPHTHALMOLOGY
+# ══════════════════════════════════════
+Examination Under Anaesthesia (EUA)
+Probing and Syringing (Paediatric)
+Paediatric Glaucoma Surgery
+Congenital Ptosis Repair
+ROP Screening
+ROP Laser Treatment
+ROP Surgery (Vitrectomy)
+
+# ══════════════════════════════════════
+# TRAUMA
+# ══════════════════════════════════════
+Open Globe Repair
+Perforating Injury Repair
+Intraocular Foreign Body Removal
+Corneal Laceration Repair
+Scleral Laceration Repair
+Traumatic Cataract Surgery
+Traumatic Hyphema Management
+Lid Avulsion Repair
+Orbital Wall Fracture Repair
+
+# ══════════════════════════════════════
+# REFRACTIVE & SURFACE
+# ══════════════════════════════════════
+LASIK
+PRK (Photorefractive Keratectomy)
+LASEK
+SMILE
+Corneal Cross-Linking (CXL)
+Implantable Collamer Lens (ICL)
+
+# ══════════════════════════════════════
+# GENERAL / OTHER
+# ══════════════════════════════════════
+Subconjunctival Injection
+Subtenon Injection
+Conjunctival Biopsy
+Conjunctivoplasty
+Symblepharon Release
+Peribulbar Block
+Retrobulbar Block
+Examination and Procedure (General)
+Teaching and Demonstration
+Other (Specify in Notes)

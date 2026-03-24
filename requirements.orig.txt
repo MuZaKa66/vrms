@@ -1,0 +1,32 @@
+
+## REQUIREMENTS FILE
+#**File: requirements.txt**
+# OT Video System Requirements
+
+#Python 3.9+
+
+# GUI Framework
+PyQt5==5.15.9
+
+# Video Processing
+opencv-python==4.8.1.78
+opencv-contrib-python==4.8.1.78
+numpy<2.0.0  # OpenCV compatibility
+
+# Image Processing
+# 10.1.0
+Pillow==10.4.0
+
+# Audio
+pyaudio==0.2.14
+#pygame==2.5.2
+
+# Voice Recognition (Offline)
+vosk==0.3.45
+
+# Database
+# sqlite3 (built-in)
+
+# Utilities
+python-dateutil==2.8.2
+

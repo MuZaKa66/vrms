@@ -1,0 +1,24 @@
+*** chnage in config fle for pi
+
+Perfect! Simple one-liner workaround:
+
+For Laptop Development - Change Storage Path:
+In config/app_config.py, change this one line:
+python# FROM:
+VIDEO_STORAGE_PATH = "/mnt/videostore"
+
+# TO:
+VIDEO_STORAGE_PATH = "./videostore"  # Uses current directory
+Then create local storage:
+bashmkdir -p videostore/{videos,thumbnails,database,temp,backups}
+That's it! When you move to Pi, just change it back to /mnt/videostore.
+
+1. step 1  py  init_database. py
+reslt
+
+✓ Database initialization completed successfully!
+
+Database location: videostore\database\otvideo.db
+
+You can now run the application.
+
