@@ -6,11 +6,11 @@
 #Python 3.9+
 
 # GUI Framework
-PyQt5==5.15.9
+#PyQt5==5.15.9
 
 # Video Processing
-opencv-python==4.8.1.78
-opencv-contrib-python==4.8.1.78
+#opencv-python==4.8.1.78
+#opencv-contrib-python==4.8.1.78
 numpy<2.0.0  # OpenCV compatibility
 
 # Image Processing

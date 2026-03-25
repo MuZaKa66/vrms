@@ -66,7 +66,7 @@ from pathlib import Path
 #   - False: Normal operation - auto-detects Windows vs Raspberry Pi
 #   - True:  Testing or special hardware - force specific values
 #
-FORCE_MANUAL_CONFIG = True
+FORCE_MANUAL_CONFIG = False
 
 
 # ============================================================================
@@ -783,7 +783,7 @@ def get_config_summary():
         "storage_path": str(VIDEO_STORAGE_PATH),
         "recordings_dir": str(RECORDINGS_DIR),
         "database_path": str(DATABASE_PATH),
-        "voice_enabled": VOICE_RECOGNITION_ENABLED,
+        "voice_enabled":ENABLE_VOICE_COMMANDS,
         "debug_mode": DEBUG_MODE,
     }
 

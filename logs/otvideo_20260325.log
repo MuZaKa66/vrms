@@ -1,0 +1,174 @@
+2026-03-25 06:58:43 - Main - INFO - ============================================================
+2026-03-25 06:58:43 - Main - INFO - VRMS SYSTEM STARTING
+2026-03-25 06:58:43 - Main - INFO - ============================================================
+2026-03-25 06:58:43 - Main - INFO - ============================================================
+2026-03-25 06:58:43 - Main - INFO - Video Recording Management System (VRMS) v1.1.0
+2026-03-25 06:58:43 - Main - INFO - Python 3.13.5
+2026-03-25 06:58:43 - Main - INFO - Platform: Linux-6.12.75+rpt-rpi-v8-aarch64-with-glibc2.41
+2026-03-25 06:58:43 - Main - INFO - Started at: 2026-03-25 06:58:43
+2026-03-25 06:58:43 - Main - INFO - ============================================================
+2026-03-25 06:58:43 - Main - INFO - Initializing database...
+2026-03-25 06:58:44 - Main - INFO - Database initialized successfully
+2026-03-25 06:58:44 - Main - INFO - Verifying database connection...
+2026-03-25 06:58:44 - DatabaseService - DEBUG - Database service initialized: /opt/vrms1/videostore/database/otvideo.db
+2026-03-25 06:58:44 - Main - INFO - Database OK - 3 recordings found
+2026-03-25 06:58:44 - Main - INFO - Checking storage...
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/thumbnails
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/temp
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/database
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/metadata_backup
+2026-03-25 06:58:44 - StorageService - DEBUG - All storage directories verified
+2026-03-25 06:58:44 - StorageService - INFO - Storage service initialized successfully
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/thumbnails
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/temp
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/database
+2026-03-25 06:58:44 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/metadata_backup
+2026-03-25 06:58:44 - StorageService - DEBUG - All storage directories verified
+2026-03-25 06:58:44 - StorageService - DEBUG - Storage status: 18.39 GB free of 28.09 GB (30.2% used)
+2026-03-25 06:58:44 - Main - INFO - Storage OK - 18.4 GB free of 28.1 GB
+2026-03-25 06:58:44 - Main - INFO - Cleaning temporary files...
+2026-03-25 06:58:44 - StorageService - INFO - Cleaned temp directory: 0 files removed
+2026-03-25 06:58:44 - Main - INFO - Cleaned 0 temporary files
+2026-03-25 06:58:44 - Main - INFO - System initialization complete
+2026-03-25 06:58:44 - Main - INFO - ============================================================
+2026-03-25 06:58:44 - Main - INFO - Checking storage health...
+2026-03-25 06:58:44 - Main - INFO - Creating main window...
+2026-03-25 06:58:44 - SystemMonitorService - INFO - System monitor initialized on Linux
+2026-03-25 06:58:45 - PreviewHandler - DEBUG - PreviewHandler initialized (throttle: every 3 frames)
+2026-03-25 06:58:45 - VideoCaptureService - INFO - Video capture initialized: /dev/video0
+2026-03-25 06:58:45 - VideoCaptureService - INFO - Platform: Linux
+2026-03-25 06:58:45 - VideoEncoderService - INFO - Video encoder initialized: FFmpeg mode
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/thumbnails
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/temp
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/database
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/metadata_backup
+2026-03-25 06:58:45 - StorageService - DEBUG - All storage directories verified
+2026-03-25 06:58:45 - StorageService - INFO - Storage service initialized successfully
+2026-03-25 06:58:45 - RecordingController - INFO - Recording controller initialized
+2026-03-25 06:58:45 - RecordingController - DEBUG - Error callback set
+2026-03-25 06:58:45 - RecordingControllerWrapper - DEBUG - RecordingControllerWrapper initialized
+2026-03-25 06:58:45 - RecordingControllerWrapper - DEBUG - RecordingTimer initialized
+2026-03-25 06:58:45 - MetadataHandler - DEBUG - MetadataHandler initialized
+2026-03-25 06:58:45 - RecordingScreen - INFO - RecordingScreen initialized (LGH Edition)
+2026-03-25 06:58:45 - DatabaseService - DEBUG - Database service initialized: /opt/vrms1/videostore/database/otvideo.db
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/thumbnails
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/temp
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/database
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/metadata_backup
+2026-03-25 06:58:45 - StorageService - DEBUG - All storage directories verified
+2026-03-25 06:58:45 - StorageService - INFO - Storage service initialized successfully
+2026-03-25 06:58:45 - LibraryController - INFO - Library controller initialized
+2026-03-25 06:58:45 - DatabaseService - DEBUG - Retrieved 3 recordings
+2026-03-25 06:58:45 - LibraryController - INFO - Retrieved 3 recordings
+2026-03-25 06:58:45 - PlaybackScreen - INFO - Playback screen initialized
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/thumbnails
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/temp
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/database
+2026-03-25 06:58:45 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/metadata_backup
+2026-03-25 06:58:45 - StorageService - DEBUG - All storage directories verified
+2026-03-25 06:58:45 - StorageService - INFO - Storage service initialized successfully
+2026-03-25 06:58:45 - StorageService - DEBUG - Storage status: 18.39 GB free of 28.09 GB (30.2% used)
+2026-03-25 06:58:45 - SettingsScreen - DEBUG - Storage stats updated: 18.4 GB free
+2026-03-25 06:58:45 - SettingsScreen - INFO - Settings screen initialized
+2026-03-25 06:58:45 - VoiceCommandService - WARNING - ⚠ Vosk not installed - voice commands disabled
+2026-03-25 06:58:45 - MainWindow - WARNING - Voice service created but not available
+2026-03-25 06:58:45 - SystemMonitorService - DEBUG - Temperature: 58.4°C
+2026-03-25 06:58:45 - SystemMonitorService - DEBUG - Memory: 18.7% used
+2026-03-25 06:58:45 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:58:46 - MainWindow - INFO - Main window initialized
+2026-03-25 06:58:46 - Main - INFO - Application started successfully
+2026-03-25 06:58:46 - Main - INFO - Ready for operation
+2026-03-25 06:58:50 - StorageService - DEBUG - Storage status: 18.39 GB free of 28.09 GB (30.2% used)
+2026-03-25 06:58:50 - RecordingController - INFO - Created recording: 20260325_065850.mp4
+2026-03-25 06:58:50 - VideoCaptureService - INFO - Opening Linux camera /dev/video0 with V4L2
+2026-03-25 06:58:50 - VideoCaptureService - INFO - Hardware Synced: 720x480
+2026-03-25 06:58:51 - VideoCaptureService - INFO - Camera opened successfully: 720x480 @ 25fps
+2026-03-25 06:58:51 - RecordingController - INFO - Camera opened: None
+2026-03-25 06:58:51 - RecordingController - DEBUG - Active temp file registered: /opt/vrms1/videostore/temp/20260325_065850.mp4
+2026-03-25 06:58:51 - VideoEncoderService - INFO - FFmpeg encoding started: /opt/vrms1/videostore/temp/20260325_065850.mp4
+2026-03-25 06:58:51 - RecordingController - INFO - Encoder started: /opt/vrms1/videostore/temp/20260325_065850.mp4
+2026-03-25 06:58:51 - RecordingController - DEBUG - Recording loop started
+2026-03-25 06:58:51 - RecordingController - INFO - Recording started successfully
+2026-03-25 06:58:51 - RecordingControllerWrapper - INFO - Recording started: None
+2026-03-25 06:58:51 - RecordingControllerWrapper - DEBUG - Timer started
+2026-03-25 06:58:51 - RecordingScreen - INFO - Recording started
+2026-03-25 06:58:51 - SystemMonitorService - DEBUG - Temperature: 56.4°C
+2026-03-25 06:58:51 - SystemMonitorService - DEBUG - Memory: 21.3% used
+2026-03-25 06:58:51 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:58:55 - SystemMonitorService - DEBUG - Temperature: 58.4°C
+2026-03-25 06:58:55 - SystemMonitorService - DEBUG - Memory: 23.4% used
+2026-03-25 06:58:55 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:00 - SystemMonitorService - DEBUG - Temperature: 57.4°C
+2026-03-25 06:59:00 - SystemMonitorService - DEBUG - Memory: 24.5% used
+2026-03-25 06:59:00 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:01 - RecordingController - INFO - Stopping recording...
+2026-03-25 06:59:01 - RecordingController - DEBUG - Recording loop ended. Frames captured: 222
+2026-03-25 06:59:01 - VideoEncoderService - INFO - FFmpeg encoding complete: 222 frames, 2.66 MB
+2026-03-25 06:59:01 - RecordingController - INFO - Encoder stopped: {'frame_count': 222, 'duration_seconds': 9, 'output_path': '/opt/vrms1/videostore/temp/20260325_065850.mp4', 'file_size_bytes': 2785703, 'file_size_mb': 2.65665340423584, 'encoder': 'FFmpeg'}
+2026-03-25 06:59:01 - VideoCaptureService - INFO - Camera closed
+2026-03-25 06:59:01 - RecordingController - INFO - Camera closed
+2026-03-25 06:59:01 - RecordingController - DEBUG - Recording duration: 9 seconds
+2026-03-25 06:59:01 - FileUtils - DEBUG - Directory ensured: /opt/vrms1/videostore/videos/2026/03
+2026-03-25 06:59:01 - StorageService - INFO - Saved recording: 20260325_065850.mp4 (2.66 MB)
+2026-03-25 06:59:01 - RecordingController - DEBUG - Active temp file cleared
+2026-03-25 06:59:01 - RecordingController - INFO - Video saved: /opt/vrms1/videostore/videos/2026/03/20260325_065850.mp4
+2026-03-25 06:59:01 - DatabaseService - DEBUG - Database service initialized: /opt/vrms1/videostore/database/otvideo.db
+2026-03-25 06:59:01 - DatabaseService - INFO - Created recording: ID=4, filename=20260325_065850.mp4
+2026-03-25 06:59:01 - RecordingController - INFO - Recording saved to database: ID=4
+2026-03-25 06:59:01 - RecordingController - INFO - ✓ Recording stopped successfully
+2026-03-25 06:59:01 - RecordingControllerWrapper - INFO - Recording stopped: /opt/vrms1/videostore/videos/2026/03/20260325_065850.mp4
+2026-03-25 06:59:01 - RecordingControllerWrapper - DEBUG - Timer stopped
+2026-03-25 06:59:01 - PreviewHandler - DEBUG - Preview cleared
+2026-03-25 06:59:01 - RecordingInfoDialog - DEBUG - Recording info dialog initialized
+2026-03-25 06:59:04 - RecordingInfoDialog - DEBUG - Collected recording info: patient=
+2026-03-25 06:59:04 - DatabaseService - DEBUG - Database service initialized: /opt/vrms1/videostore/database/otvideo.db
+2026-03-25 06:59:04 - MetadataController - INFO - Metadata controller initialized
+2026-03-25 06:59:04 - DatabaseService - INFO - Updated recording: ID=4
+2026-03-25 06:59:04 - MetadataController - INFO - Metadata added to 20260325_065850.mp4
+2026-03-25 06:59:04 - RecordingInfoDialog - INFO - Recording info saved for: 20260325_065850.mp4
+2026-03-25 06:59:04 - MetadataHandler - INFO - Metadata saved (post-recording)
+2026-03-25 06:59:04 - MetadataHandler - INFO - Metadata cleared
+2026-03-25 06:59:04 - RecordingScreen - INFO - Recording stopped
+2026-03-25 06:59:05 - SystemMonitorService - DEBUG - Temperature: 56.9°C
+2026-03-25 06:59:05 - SystemMonitorService - DEBUG - Memory: 23.3% used
+2026-03-25 06:59:05 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:08 - DatabaseService - DEBUG - Retrieved 4 recordings
+2026-03-25 06:59:08 - LibraryController - INFO - Retrieved 4 recordings
+2026-03-25 06:59:11 - PlaybackScreen - INFO - ✓ Video loaded: 20260325_065850.mp4
+2026-03-25 06:59:11 - LibraryScreen - INFO - Playing: 20260325_065850.mp4
+2026-03-25 06:59:11 - SystemMonitorService - DEBUG - Temperature: 58.4°C
+2026-03-25 06:59:11 - SystemMonitorService - DEBUG - Memory: 22.4% used
+2026-03-25 06:59:11 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:15 - SystemMonitorService - DEBUG - Temperature: 57.4°C
+2026-03-25 06:59:15 - SystemMonitorService - DEBUG - Memory: 22.1% used
+2026-03-25 06:59:15 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:20 - SystemMonitorService - DEBUG - Temperature: 58.4°C
+2026-03-25 06:59:20 - SystemMonitorService - DEBUG - Memory: 22.0% used
+2026-03-25 06:59:20 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:25 - SystemMonitorService - DEBUG - Temperature: 59.9°C
+2026-03-25 06:59:25 - SystemMonitorService - DEBUG - Memory: 21.9% used
+2026-03-25 06:59:25 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:30 - SystemMonitorService - DEBUG - Temperature: 57.9°C
+2026-03-25 06:59:30 - SystemMonitorService - DEBUG - Memory: 21.9% used
+2026-03-25 06:59:30 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:32 - DatabaseService - DEBUG - Retrieved 4 recordings
+2026-03-25 06:59:32 - LibraryController - INFO - Retrieved 4 recordings
+2026-03-25 06:59:35 - SystemMonitorService - DEBUG - Temperature: 57.9°C
+2026-03-25 06:59:35 - SystemMonitorService - DEBUG - Memory: 21.7% used
+2026-03-25 06:59:35 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:40 - SystemMonitorService - DEBUG - Temperature: 57.4°C
+2026-03-25 06:59:40 - SystemMonitorService - DEBUG - Memory: 21.7% used
+2026-03-25 06:59:40 - SystemMonitorService - DEBUG - Health: healthy
+2026-03-25 06:59:43 - MainWindow - INFO - Application closing via user request (X button)
+2026-03-25 06:59:43 - Main - INFO - Application shutting down...
+2026-03-25 06:59:43 - Main - INFO - Exit code: 0

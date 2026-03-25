@@ -26,7 +26,6 @@ Version: 1.0.0
 import cv2
 import time
 import platform
-import subprocess
 from typing import Tuple, Optional, Dict
 import numpy as np
 from pathlib import Path
@@ -121,29 +120,10 @@ class VideoCaptureService:
                 logger.info(f"Opening Windows camera {self.device_path} with DirectShow")
             else:
                 # Linux/Pi: Use V4L2 backend
-                # device_path should be string ("/dev/video0")        
-                subprocess.run(['v4l2-ctl', '-s', '0'], capture_output=True) # Auto-detect PAL/NTSC
+                # device_path should be string ("/dev/video0")
                 self.capture = cv2.VideoCapture(self.device_path, cv2.CAP_V4L2)
                 logger.info(f"Opening Linux camera {self.device_path} with V4L2")
-#***test code block start
-# --- INSERT THIS BLOCK HERE ---
-            if not self.is_windows:
-                # 1. Force MJPG mode (Essential for EasyCap on Pi)
-                self.capture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                # 2. Force Hardware Resolution
-                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 720)
-                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) # Use 576 if PAL
-                
-                # 3. SYNC: Update service properties with ACTUAL hardware values
-                # This prevents the 261-byte error by ensuring the Encoder 
-                # gets the truth, not the config guess.
-                self.width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-                self.height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                logger.info(f"Hardware Synced: {self.width}x{self.height}")
-            # --- END OF INSERT ---
-#*** test code block end            
-
-
+            
             if not self.capture.isOpened():
                 return False, None, (
                     "Cannot open camera. "

@@ -10,15 +10,20 @@ IMPROVEMENTS FROM PREVIOUS VERSION:
 2. Error callback system for GUI notification
 3. Comprehensive error recovery
 4. All existing functionality preserved
+5. Active temp file tracking for storage service protection
 
 ROBUSTNESS FEATURES:
 - Thread errors don't fail silently
 - User always informed of recording issues
 - Daemon thread can't block app exit
 - Frame capture errors handled gracefully
+- Active temp file tracked for cleanup protection
 
-Version: 3.0.0 (Robust error handling)
-Date: February 13, 2026
+Version: 3.1.0 (Added active temp file tracking)
+Date: March 25, 2026
+Changelog:
+    - v3.1.0: Added _active_temp_file class variable and get_active_temp_file() method
+    - v3.0.0: Robust error handling with user notifications
 """
 
 import threading
@@ -47,7 +52,14 @@ class RecordingController:
     - User sees friendly error messages
     - Recording state always consistent
     - Resources always cleaned up
+    
+    ACTIVE TEMP FILE TRACKING:
+    - Tracks current temp file path for storage service
+    - Prevents cleanup while recording is active
     """
+    
+    # Class variable to track active temp file (for storage service protection)
+    _active_temp_file = None
     
     def __init__(self):
         """Initialize recording controller."""
@@ -62,6 +74,7 @@ class RecordingController:
         self.stop_recording_flag = False
         
         self.start_time = None
+        self.temp_video_path = None  # Instance variable for temp file path
         
         # Frame storage (thread-safe)
         self.current_frame = None
@@ -127,8 +140,16 @@ class RecordingController:
         # Start Encoder
         self.temp_video_path = str(Path(TEMP_DIR) / self.recording.filename)
         
+        # ================================================================
+        # REGISTER ACTIVE TEMP FILE FOR STORAGE SERVICE PROTECTION
+        # ================================================================
+        RecordingController._active_temp_file = self.temp_video_path
+        logger.debug(f"Active temp file registered: {self.temp_video_path}")
+        
         success, _, error = self.encoder.start_encoding(self.temp_video_path)
         if not success:
+            # Clear active temp file on failure
+            RecordingController._active_temp_file = None
             self.camera.close()
             self.state = RecordingState.ERROR
             logger.error(f"Encoder failed: {error}")
@@ -297,6 +318,8 @@ class RecordingController:
             logger.error(f"Encoder stop failed: {error}")
             self.camera.close()
             self.state = RecordingState.ERROR
+            # Clear active temp file on failure
+            RecordingController._active_temp_file = None
             return False, None, f"Failed to finalize video: {error}"
         
         logger.info(f"Encoder stopped: {stats}")
@@ -318,6 +341,12 @@ class RecordingController:
             self.temp_video_path,
             self.recording
         )
+        
+        # ================================================================
+        # CLEAR ACTIVE TEMP FILE (recording is complete)
+        # ================================================================
+        RecordingController._active_temp_file = None
+        logger.debug("Active temp file cleared")
         
         if not success:
             self.state = RecordingState.ERROR
@@ -374,6 +403,11 @@ class RecordingController:
         self.encoder.stop_encoding()
         self.camera.close()
         
+        # ================================================================
+        # CLEAR ACTIVE TEMP FILE (recording cancelled)
+        # ================================================================
+        RecordingController._active_temp_file = None
+        
         # Delete temp file
         try:
             temp_path = Path(self.temp_video_path)
@@ -410,6 +444,18 @@ class RecordingController:
             'filename': self.recording.filename if self.recording else None,
             'has_current_frame': self.current_frame is not None
         }
+    
+    @classmethod
+    def get_active_temp_file(cls):
+        """
+        Get the currently active temp file path.
+        
+        Used by storage service to protect active recording files from cleanup.
+        
+        Returns:
+            str or None: Path to active temp file, or None if no active recording
+        """
+        return cls._active_temp_file
 
 
 __all__ = ['RecordingController']

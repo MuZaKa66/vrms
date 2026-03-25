@@ -11,13 +11,15 @@ Module Description:
     - Video file organization by date
     - Storage health checks
     - Professional error messages
-    
-    Design Philosophy:
+    - Protection for active recording temp files
+
+Design Philosophy:
     - Never crash on storage errors
     - Always provide user-friendly error messages
     - Auto-create missing directories
     - Validate before executing operations
     - Complete audit trail in logs
+    - Never delete files currently in use
 
 Dependencies:
     - pathlib: Modern path handling
@@ -47,8 +49,11 @@ Usage Example:
     ... )
 
 Author: OT Video Dev Team
-Date: January 28, 2026
-Version: 1.0.0
+Date: March 25, 2026
+Version: 1.0.1
+Changelog:
+    - v1.0.1: Added protection for active recording temp files during cleanup
+    - v1.0.0: Initial release
 """
 
 # ============================================================================
@@ -100,6 +105,7 @@ class StorageService:
     - File organization by date
     - Error recovery
     - User-friendly error messages
+    - Protection for active recording temp files
     
     All operations return (success, data, error_message) tuples.
     
@@ -123,7 +129,7 @@ class StorageService:
         
         # Directory management
         ensure_directories(): Create required directories
-        clean_temp_directory(): Remove temporary files
+        clean_temp_directory(): Remove temporary files (protects active recordings)
     
     Example:
         >>> storage = StorageService()
@@ -220,7 +226,9 @@ class StorageService:
         """
         Clean temporary directory.
         
-        Removes all files from temp directory.
+        Removes all files from temp directory EXCEPT those currently in use
+        by active recordings. This prevents deletion of files being written.
+        
         Use after recording is saved or on startup.
         
         Returns:
@@ -232,13 +240,43 @@ class StorageService:
         """
         try:
             files_removed = 0
+            active_files = []
             
             if not self.temp_dir.exists():
                 return True, 0, None
             
-            # Remove all files in temp directory
+            # ================================================================
+            # PROTECT ACTIVE RECORDING FILES
+            # ================================================================
+            # Get list of files currently being written by active recordings
+            # This prevents deletion of temp files that are still in use
+            try:
+                # Import RecordingController to get active temp file
+                from app.controllers.recording_controller import RecordingController
+                active_file = RecordingController.get_active_temp_file()
+                if active_file:
+                    active_files.append(str(active_file))
+                    logger.debug(f"Active recording file protected: {active_file}")
+            except ImportError:
+                # Recording controller not available - no protection needed
+                pass
+            except AttributeError:
+                # Function doesn't exist in recording controller
+                logger.debug("get_active_temp_file not available in RecordingController")
+            except Exception as e:
+                # Log warning but continue with cleanup
+                logger.warning(f"Could not check active recordings: {e}")
+            
+            # ================================================================
+            # CLEANUP LOOP - Skip active files
+            # ================================================================
             for item in self.temp_dir.iterdir():
                 if item.is_file():
+                    # Skip if this file is currently in use by active recording
+                    if str(item) in active_files:
+                        logger.debug(f"Skipping active file: {item.name}")
+                        continue
+                    
                     try:
                         item.unlink()
                         files_removed += 1
