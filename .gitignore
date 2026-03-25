@@ -1,0 +1,46 @@
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Python cache
+*.pyc
+*.pyo
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs - keep directory but ignore files
+logs/
+*.log
+!logs/.gitkeep
+
+# Database - keep directory but ignore files
+videostore/database/
+*.db
+!videostore/database/.gitkeep
+
+# Recordings - keep directory structure but ignore content
+videostore/recordings/
+videostore/videos/
+videostore/thumbnails/
+videostore/temp/
+!videostore/recordings/.gitkeep
+!videostore/videos/.gitkeep
+!videostore/videos/2026/.gitkeep
+!videostore/videos/2026/03/.gitkeep
+!videostore/thumbnails/.gitkeep
+!videostore/temp/.gitkeep
+
+# Metadata backups
+videostore/metadata_backup/
+!videostore/metadata_backup/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
