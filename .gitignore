@@ -1,46 +1,15 @@
-# Virtual environments
-venv/
-env/
-ENV/
-
-# Python cache
-*.pyc
-*.pyo
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.class
+venv/
+.env
 
-# Logs - keep directory but ignore files
-logs/
-*.log
-!logs/.gitkeep
-
-# Database - keep directory but ignore files
-videostore/database/
-*.db
-!videostore/database/.gitkeep
-
-# Recordings - keep directory structure but ignore content
-videostore/recordings/
-videostore/videos/
-videostore/thumbnails/
-videostore/temp/
-!videostore/recordings/.gitkeep
-!videostore/videos/.gitkeep
-!videostore/videos/2026/.gitkeep
-!videostore/videos/2026/03/.gitkeep
-!videostore/thumbnails/.gitkeep
-!videostore/temp/.gitkeep
-
-# Metadata backups
-videostore/metadata_backup/
-!videostore/metadata_backup/.gitkeep
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# OS
+# Raspberry Pi / Linux
 .DS_Store
-Thumbs.db
+.thumbs
+*.swp
+*.log
+
+# Project Specific
+videostore/
