@@ -14,6 +14,8 @@ Version: 3.1.0 (Robust error handling)
 Date: February 13, 2026
 """
 
+
+
 from PyQt5.QtWidgets import (
     QMainWindow, QStackedWidget, QWidget,
     QVBoxLayout, QHBoxLayout, QPushButton,
@@ -21,7 +23,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
-
+from config.app_config import WINDOW_WIDTH, WINDOW_HEIGHT
 from app.gui.recording import RecordingScreen
 from app.gui.library_screen import LibraryScreen
 from app.gui.playback_screen import PlaybackScreen
@@ -34,7 +36,7 @@ from app.gui.dialogs import CloseConfirmDialog
 try:
     from app.services.voice_command_service import VoiceCommandService
     from app.gui.widgets.voice_indicator_widget import VoiceIndicatorWidget
-    VOICE_AVAILABLE = True
+    VOICE_AVAILABLE = False
 except ImportError as e:
     VOICE_AVAILABLE = False
 
@@ -54,10 +56,8 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        
         self.system_monitor = SystemMonitorService()
-        
-        # Voice (optional)
+    # Voice (optional)
         self.voice_service = None
         self.voice_indicator = None
         self.voice_enabled = False  # Track actual voice state
@@ -69,7 +69,11 @@ class MainWindow(QMainWindow):
         
         self.start_system_monitoring()
         
-        self.showMaximized()
+        #self.showMaximized() # t test picking resolution from cofig file
+        #self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.showFullScreen()
+        #self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        print(f"Window set to: {self.width()} x {self.height()}")
         
         logger.info("Main window initialized")
     

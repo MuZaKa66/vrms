@@ -114,8 +114,8 @@ def get_platform_config():
         'video_device': 0,
         'use_opencv_encoder': True,
         'video_encoder': 'libx264',
-        'video_width': 640,
-        'video_height': 480,
+        'video_width': 1024,
+        'video_height': 600,
         'video_fps': 30,
         'platform_name': 'Unknown',
         'is_raspberry_pi': False,
@@ -519,8 +519,8 @@ WATCHDOG_TIMEOUT_SECONDS = 30
 # ============================================================================
 # Window configuration
 WINDOW_TITLE = APP_NAME
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 480
+WINDOW_WIDTH = 1024
+WINDOW_HEIGHT = 600
 WINDOW_FULLSCREEN = False  # Set True for production kiosk mode
 
 # Theme and styling
