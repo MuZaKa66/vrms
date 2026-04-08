@@ -148,6 +148,23 @@ def main():
     # Set application style
     app.setStyle("Fusion")
     
+    # ── Global UI Font ────────────────────────────────────────────────────
+    
+    from PyQt5.QtGui import QFont
+        # ── QMessageBox global stylesheet ─────────────────────────────────────────
+    from config.app_config import MSGBOX_FONT_SIZE, MSGBOX_BTN_FONT, MSGBOX_BTN_WIDTH, MSGBOX_BTN_HEIGHT
+    app.setStyleSheet(
+        f"""
+        QMessageBox {{ font-size: {MSGBOX_FONT_SIZE}px; }}
+        QMessageBox QLabel {{ font-size: {MSGBOX_FONT_SIZE}px; }}
+        QMessageBox QPushButton {{
+            font-size: {MSGBOX_BTN_FONT}px;
+            min-width: {MSGBOX_BTN_WIDTH}px;
+            min-height: {MSGBOX_BTN_HEIGHT}px;
+        }}
+        """
+    )
+    
     # Setup signal handlers
     setup_signal_handlers()
     
@@ -253,7 +270,9 @@ def main():
     
     # Normal window for development
     window.show()
-    
+
+
+
     logger.info("Application started successfully")
     logger.info("Ready for operation")
     

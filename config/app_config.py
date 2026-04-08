@@ -42,7 +42,7 @@ Usage Example:
 Author: OT Video Dev Team
 Date: March 24, 2026
 Version: 1.1.0
-Last Updated: March 24, 2026
+Last Updated: April 8, 2026
 Changelog:
     - v1.1.0: Added platform auto-detection, FORCE_MANUAL_CONFIG flag, manual override section
     - v1.0.2: Added LOG_DATE_FORMAT and compatibility aliases for logger.py
@@ -378,7 +378,6 @@ else:
         )
 
 
-
 # ============================================================================
 # SECTION 5: APPLICATION METADATA
 # ============================================================================
@@ -461,7 +460,7 @@ AUDIO_FEEDBACK_VOLUME = 0.8  # Volume level (0.0 to 1.0)
 VOSK_MODEL_PATH = Path.home() / "vosk-models" / "vosk-model-small-en-us-0.15"
 
 # Voice recognition parameters
-#VOICE_RECOGNITION_ENABLED = True  #  commneted  to aviod duplication wrt flag settings(sec 15) 
+#VOICE_RECOGNITION_ENABLED = True  # commented to avoid duplication wrt flag settings (sec 15)
 VOICE_CONFIDENCE_THRESHOLD = 0.6  # Minimum confidence score (0.0 to 1.0)
 VOICE_COMMAND_TIMEOUT_SECONDS = 5  # Max time to wait for command completion
 
@@ -700,11 +699,6 @@ def check_storage_health(storage_path):
     return result
 
 
-
-
-
-
-
 # ============================================================================
 # SECTION 16: VALIDATION AND UTILITIES
 # ============================================================================
@@ -783,7 +777,7 @@ def get_config_summary():
         "storage_path": str(VIDEO_STORAGE_PATH),
         "recordings_dir": str(RECORDINGS_DIR),
         "database_path": str(DATABASE_PATH),
-        "voice_enabled":ENABLE_VOICE_COMMANDS,
+        "voice_enabled": ENABLE_VOICE_COMMANDS,
         "debug_mode": DEBUG_MODE,
     }
 
@@ -925,3 +919,90 @@ if __name__ == "__main__":
     print(f"Writable: {storage_health['writable']}")
     if storage_health['error']:
         print(f"Error: {storage_health['error']}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOCK: VIRTUAL KEYBOARD TIMING
+# ═══════════════════════════════════════════════════════════════════════════════
+KEYBOARD_IDLE_HIDE_SECONDS = 5     # stage 1: hide keyboard after idle
+KEYBOARD_KILL_SECONDS      = 120   # stage 2: free keyboard memory
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOCK: GLOBAL UI FONT SETTINGS
+# Applied via app.setFont() in main.py — affects ALL widgets that do not have
+# an explicit font set. This includes:
+#   - QMessageBox (system popups — Exit, warnings, errors)
+#   - QComboBox dropdowns (where no explicit font is set)
+#   - QLabel (where no explicit font is set)
+#   - QDialog default text
+#   - QPushButton (where no explicit font is set)
+#
+# Widgets with explicit setFont() calls are NOT affected (recording screen,
+# top bar, nav bar, metadata dialog — these have their own font settings).
+#
+# To change global font: modify values below, restart app.
+# ═══════════════════════════════════════════════════════════════════════════════
+GLOBAL_UI_FONT_FAMILY = "Arial"
+GLOBAL_UI_FONT_SIZE   = 16        # affects all widgets without explicit font
+
+
+# ── QMessageBox appearance ────────────────────────────────────────────────────
+# Controls all system popup dialogs (Exit, warnings, errors).
+# Tweak these values to adjust size/font without touching code.
+MSGBOX_FONT_SIZE    = 22    # popup message text size
+MSGBOX_BTN_FONT     = 20    # button label font size
+MSGBOX_BTN_WIDTH    = 160   # button minimum width px
+MSGBOX_BTN_HEIGHT   = 60    # button minimum height px
+MSGBOX_MSG_FONT     = 18    # message body text size
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOCK: ON-SCREEN KEYBOARD DIMENSIONS
+# Single source of truth for keyboard height used across all screens.
+#
+# MEASURED actual rendered height of one keyboard panel:
+#   6(top margin) + 5 rows x 45(KEY_H) + 4 gaps x 4(GAP) + 6(bottom margin)
+#   = 6 + 225 + 16 + 6 = 253px
+#   Rounded up to 260px to match metadata_dialog confirmed working value.
+#
+# ONSCREEN_KB_Y = SCREEN_HEIGHT(600) - ONSCREEN_KB_HEIGHT(260) = 340
+# ═══════════════════════════════════════════════════════════════════════════════
+ONSCREEN_KB_HEIGHT = 253    # actual rendered height of one keyboard panel
+ONSCREEN_KB_Y      = 347    # y position for bottom-anchored placement
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOCK: LIBRARY SCREEN CONSTANTS
+# Controls fonts, sizes and layout of the Library screen.
+# Modify values here — no code changes needed.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Search bar
+LIB_SEARCH_FONT      = 22    # search field font size
+LIB_SEARCH_HEIGHT    = 55    # search field height px
+LIB_SEARCH_BTN_W     = 200   # Search button width px
+LIB_SEARCH_BTN_H     = 55    # Search button height px
+LIB_SEARCH_BTN_FONT  = 18    # Search button font size
+LIB_KB_BTN_SIZE      = 90    # keyboard toggle button size px
+LIB_LABEL_FONT       = 16    # Search/Found labels font size
+
+# Table
+LIB_TABLE_FONT       = 17    # table cell font size
+LIB_TABLE_ROW_H      = 52    # table row height px
+LIB_TABLE_HDR_FONT   = 17    # column header font size
+LIB_SCROLLBAR_W      = 45    # scrollbar width px — wide for touch
+
+# Buttons (single row at bottom)
+LIB_BTN_H            = 60    # button height px
+LIB_BTN_FONT         = 16    # button font size
+
+# Library screen title row
+LIB_TITLE_FONT       = 20     # "Video Library" font size
+LIB_COUNT_FONT       = 14     # "Found: 109" font size
+LIB_COUNT_COLOR      = '#555555'   # count label colour
+LIB_SELECT_FONT      = 14     # "Selected: 3" font size
+LIB_SELECT_COLOR     = '#1a3fa0'   # selection label colour
+
+# ── Library screen checkbox ──────────────────────────────────────────────────
+LIB_CHECKBOX_SIZE    = 36     # touch indicator size px — fits in LIB_TABLE_ROW_H(52)

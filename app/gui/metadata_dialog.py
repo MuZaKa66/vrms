@@ -1,42 +1,21 @@
 """
 File: app/gui/metadata_dialog.py
 
-═══════════════════════════════════════════════════════════════════════════
-RECORDING INFORMATION DIALOG - User-Friendly & Robust
-═══════════════════════════════════════════════════════════════════════════
+Recording Information - Full Screen Frameless Dialog
 
-CHANGES FROM PREVIOUS VERSION:
-1. "Metadata" → "Recording Info" (doctor-friendly terminology)
-2. Added comprehensive error handling with user notifications
-3. Database save errors now show friendly messages
-4. All existing functionality preserved
+KEY LAYOUT DECISIONS:
+  - Dialog covers full 1024x600 screen, positioned via showEvent (not init_ui)
+  - Keyboard is positioned ABSOLUTELY at bottom — NOT in VBoxLayout
+  - This means form/buttons NEVER shift when keyboard appears/disappears
+  - Keyboard just overlays the bottom portion of the screen
 
-PURPOSE:
-    Dialog for entering patient/procedure information.
-    
-    Used in TWO scenarios:
-    1. BEFORE recording (Add Info button) - just collects data
-    2. AFTER recording (Stop button) - collects and saves data
-
-SECTION INDEX:
-    SECTION 1: Imports & Initialization
-    SECTION 2: UI Layout Construction
-    SECTION 3: Save Recording Info (post-recording with error handling)
-    SECTION 4: Get Recording Info (pre-recording)
-    
-Author: OT Video Dev Team
-Date: February 13, 2026
-Version: 2.0.0 (User-friendly + robust error handling)
+Version: 3.2.0
 """
 
-# ═══════════════════════════════════════════════════════════════════════════
-# SECTION 1: IMPORTS & INITIALIZATION
-# ═══════════════════════════════════════════════════════════════════════════
-
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout,
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QComboBox,
-    QPushButton, QMessageBox
+    QPushButton, QMessageBox, QFrame
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -47,282 +26,234 @@ from app.utils.logger import AppLogger
 
 logger = AppLogger("RecordingInfoDialog")
 
+KB_HEIGHT = 430   # keyboard height in pixels
+
 
 class MetadataDialog(QDialog):
-    """
-    Recording information entry dialog.
-    
-    USAGE SCENARIOS:
-    
-    1. Pre-recording (recording = None):
-        - User clicks "Add Info" before recording
-        - Dialog just collects data
-        - Data stored temporarily in recording_screen
-        - When recording stops, data auto-saved
-        
-    2. Post-recording (recording object passed):
-        - User stops recording
-        - Dialog collects and SAVES data immediately
-        - Updates database with recording info
-        
-    ERROR HANDLING:
-    - Database save errors show user-friendly messages
-    - Recording is safe even if info save fails
-    - All errors logged for debugging
-    """
-    
+
     def __init__(self, recording=None, parent=None):
-        """
-        Initialize dialog.
-        
-        Args:
-            recording: Recording object (None for pre-recording)
-            parent: Parent widget
-        """
         super().__init__(parent)
-        self.recording = recording
+        self.recording     = recording
+        self._active_input = None
         self.init_ui()
-        
         logger.debug("Recording info dialog initialized")
-    
-    # ════════════════════════════════════════════════════════════════════
-    # SECTION 2: UI LAYOUT CONSTRUCTION
-    # ════════════════════════════════════════════════════════════════════
-    
+
+    def showEvent(self, event):
+        """Force position to 0,0 every time dialog is shown."""
+        super().showEvent(event)
+        self.move(0, -36)
+
     def init_ui(self):
-        """Build dialog UI with user-friendly labels."""
-        # CHANGED: "Add Metadata" → "Add Recording Info"
         self.setWindowTitle("Add Recording Info")
-        self.setMinimumWidth(500)
+        self.setFixedSize(1024, 564)
         self.setModal(True)
-        
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setStyleSheet("QDialog { background-color: #f0f2f5; }")
+
+        # ── Main layout — title + form + buttons only ──────────────────
+        # Keyboard is NOT in this layout — it is absolutely positioned
         layout = QVBoxLayout(self)
-        layout.setSpacing(15)
-        
-        # Title - CHANGED: "Recording Metadata" → "Recording Information"
-        title = QLabel("Recording Information")
-        title.setFont(QFont("Arial", 16, QFont.Bold))
+        layout.setSpacing(6)
+        layout.setContentsMargins(20, 12, 20, 12)
+
+        # Title
+        title = QLabel("Recording Information(VRMS)")
+        title.setFont(QFont("Arial", 24, QFont.Bold))
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #2c3e50; padding: 10px;")
+        title.setStyleSheet("color: #2c3e50;")
         layout.addWidget(title)
-        
-        # Patient Name
-        layout.addWidget(QLabel("Patient Name:"))
-        self.patient_input = QLineEdit()
-        self.patient_input.setPlaceholderText("Enter patient name")
-        self.patient_input.setMinimumHeight(40)
-        self.patient_input.setStyleSheet("""
-            QLineEdit {
-                font-size: 14px;
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-            }
-        """)
-        layout.addWidget(self.patient_input)
-        
-        # Procedure Type
-        layout.addWidget(QLabel("Procedure Type:"))
+
+        # Two-column form grid
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+
+        grid.addWidget(self._lbl("Patient Name:"), 0, 0)
+        grid.addWidget(self._lbl("Procedure Type:"), 0, 1)
+
+        self.patient_input = self._field("Tap to enter patient name")
+        self.patient_input.mousePressEvent = \
+            lambda e: self._activate(self.patient_input)
+        grid.addWidget(self.patient_input, 1, 0)
+
         self.procedure_combo = QComboBox()
         self.procedure_combo.addItems(CommonProcedures.get_all_names())
-        self.procedure_combo.setMinimumHeight(40)
-        self.procedure_combo.setStyleSheet("""
-            QComboBox {
-                font-size: 14px;
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-        """)
-        layout.addWidget(self.procedure_combo)
-        
-        # Operating Theatre
-        layout.addWidget(QLabel("Operating Theatre:"))
+        self.procedure_combo.setMinimumHeight(50)
+        self.procedure_combo.setFont(QFont("Arial", 18))
+        self.procedure_combo.setStyleSheet(
+            "QComboBox{font-size:18px;padding:8px;"
+            "border:2px solid #bdc3c7;border-radius:5px;background:white;}")
+        grid.addWidget(self.procedure_combo, 1, 1)
+
+        grid.addWidget(self._lbl("Consultant / Surgeon:"), 2, 0)
+        grid.addWidget(self._lbl("Operating Theatre:"), 2, 1)
+
+        self.consultant_input = self._field("Tap to enter surgeon name")
+        self.consultant_input.mousePressEvent = \
+            lambda e: self._activate(self.consultant_input)
+        grid.addWidget(self.consultant_input, 3, 0)
+
         self.ot_combo = QComboBox()
-        self.ot_combo.addItems(["OT 1", "OT 2", "OT 3", "OT 4", "OT 5"])
-        self.ot_combo.setMinimumHeight(40)
-        self.ot_combo.setStyleSheet("""
-            QComboBox {
-                font-size: 14px;
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-        """)
-        layout.addWidget(self.ot_combo)
-        
-        # Consultant/Surgeon
-        layout.addWidget(QLabel("Consultant/Surgeon:"))
-        self.consultant_input = QLineEdit()
-        self.consultant_input.setPlaceholderText("Enter surgeon name")
-        self.consultant_input.setMinimumHeight(40)
-        self.consultant_input.setStyleSheet("""
-            QLineEdit {
-                font-size: 14px;
-                padding: 8px;
-                border: 2px solid #bdc3c7;
-                border-radius: 5px;
-            }
-            QLineEdit:focus {
-                border-color: #3498db;
-            }
-        """)
-        layout.addWidget(self.consultant_input)
-        
-        # Buttons
-        button_layout = QHBoxLayout()
-        
+        self.ot_combo.addItems(["OT 1","OT 2","OT 3","OT 4","OT 5"])
+        self.ot_combo.setMinimumHeight(50)
+        self.ot_combo.setFont(QFont("Arial", 18))
+        self.ot_combo.setStyleSheet(
+            "QComboBox{font-size:18px;padding:8px;"
+            "border:2px solid #bdc3c7;border-radius:5px;background:white;}")
+        grid.addWidget(self.ot_combo, 3, 1)
+
+        layout.addLayout(grid)
+
+        # Cancel / Save buttons — fixed below form
+        btn_row = QHBoxLayout()
+
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setMinimumSize(120, 50)
+        cancel_btn.setMinimumSize(480, 52)
+        cancel_btn.setFont(QFont("Arial", 17, QFont.Bold))
         cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #95a5a6;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
+            QPushButton{
+                background:#95a5a6; color:white;
+                border-top:   3px solid rgba(255,255,255,0.35);
+                border-left:  3px solid rgba(255,255,255,0.35);
+                border-bottom:3px solid rgba(0,0,0,0.35);
+                border-right: 3px solid rgba(0,0,0,0.35);
+                border-radius:8px; font-weight:bold;
             }
-            QPushButton:pressed {
-                background-color: #7f8c8d;
+            QPushButton:pressed{
+                background:#7f8c8d;
+                border-top:   3px solid rgba(0,0,0,0.35);
+                border-left:  3px solid rgba(0,0,0,0.35);
+                border-bottom:3px solid rgba(255,255,255,0.35);
+                border-right: 3px solid rgba(255,255,255,0.35);
             }
         """)
         cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_btn)
-        
+        btn_row.addWidget(cancel_btn)
+        btn_row.addSpacing(24)
+
         save_btn = QPushButton("Save")
-        save_btn.setMinimumSize(120, 50)
+        save_btn.setMinimumSize(480, 52)
+        save_btn.setFont(QFont("Arial", 17, QFont.Bold))
         save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
+            QPushButton{
+                background:#27ae60; color:white;
+                border-top:   3px solid rgba(255,255,255,0.35);
+                border-left:  3px solid rgba(255,255,255,0.35);
+                border-bottom:3px solid rgba(0,0,0,0.35);
+                border-right: 3px solid rgba(0,0,0,0.35);
+                border-radius:8px; font-weight:bold;
             }
-            QPushButton:pressed {
-                background-color: #229954;
+            QPushButton:pressed{
+                background:#229954;
+                border-top:   3px solid rgba(0,0,0,0.35);
+                border-left:  3px solid rgba(0,0,0,0.35);
+                border-bottom:3px solid rgba(255,255,255,0.35);
+                border-right: 3px solid rgba(255,255,255,0.35);
             }
         """)
         save_btn.clicked.connect(self.accept)
-        button_layout.addWidget(save_btn)
-        
-        layout.addLayout(button_layout)
-    
+        btn_row.addWidget(save_btn)
+
+        layout.addLayout(btn_row)
+        layout.addStretch()
+
+        # ── Keyboard — absolutely positioned at bottom ─────────────────
+        # NOT in the VBoxLayout — this prevents ANY layout shift when shown
+        self._kb_frame = QFrame(self)
+        self._kb_frame.setFrameShape(QFrame.NoFrame)
+        self._kb_frame.setGeometry(0, 564 - 260, 1024, 260)
+        self._kb_frame.setVisible(False)
+
+        kb_layout = QVBoxLayout(self._kb_frame)
+        kb_layout.setContentsMargins(0, 0, 0, 0)
+        kb_layout.setSpacing(0)
+
+        from app.gui.widgets.on_screen_keyboard import OnScreenKeyboard
+        self._kb = OnScreenKeyboard(parent=self._kb_frame)
+        kb_layout.addWidget(self._kb)
+
+        self._kb.text_changed.connect(self._kb_text_changed)
+        self._kb.enter_pressed.connect(self._kb_done)
+        self._kb.cancelled.connect(self._kb_done)
+
+    # ── Helpers ────────────────────────────────────────────────────────
+
+    def _lbl(self, text):
+        l = QLabel(text)
+        l.setFont(QFont("Arial", 18, QFont.Bold))
+        return l
+
+    def _field(self, placeholder):
+        w = QLineEdit()
+        w.setPlaceholderText(placeholder)
+        w.setMinimumHeight(50)
+        w.setReadOnly(True)
+        w.setFont(QFont("Arial", 18))
+        w.setStyleSheet("""
+            QLineEdit{font-size:18px;padding:8px;
+                border:2px solid #bdc3c7;border-radius:5px;background:white;}
+            QLineEdit:focus{border-color:#3498db;}
+        """)
+        return w
+
+    def _activate(self, field):
+
+        """Show keyboard — no layout shift since it is absolutely positioned."""
+        self._active_input = field
+        self._kb.set_text(field.text())
+        self._kb_frame.setVisible(True)
+        self._kb_frame.raise_()
+
+    def _kb_text_changed(self, text):
+        if self._active_input:
+            self._active_input.setText(text)
+
+    def _kb_done(self):
+        self._kb_frame.setVisible(False)
+        self._active_input = None
+
     # ════════════════════════════════════════════════════════════════════
-    # SECTION 3: SAVE RECORDING INFO (with robust error handling)
+    # SECTION: SAVE
     # ════════════════════════════════════════════════════════════════════
-    
+
     def accept(self):
-        """
-        Save dialog data.
-        
-        ROBUST ERROR HANDLING:
-        - Shows user-friendly error messages
-        - Recording is safe even if info save fails
-        - All errors logged for debugging
-        """
-        # If recording object provided, save to database
         if self.recording:
             try:
-                # Get metadata
                 metadata = self.get_metadata()
-                
-                # Save to database
                 meta_controller = MetadataController()
                 success, updated_recording, error = meta_controller.add_metadata(
-                    self.recording,
-                    metadata
-                )
-                
-                # ROBUST: Check for save errors
+                    self.recording, metadata)
                 if not success:
-                    # Show user-friendly error message
-                    QMessageBox.warning(
-                        self,
-                        "Save Error",
-                        f"Recording is saved successfully!\n\n"
+                    QMessageBox.warning(self, "Save Error",
+                        f"Recording saved successfully!\n\n"
                         f"However, the recording information could not be saved:\n"
-                        f"{error}\n\n"
-                        f"You can add this information later by editing the recording."
-                    )
+                        f"{error}\n\nYou can add this information later.")
                     logger.error(f"Recording info save failed: {error}")
-                    # Still accept dialog - recording is safe
-                    super().accept()
-                    return
-                
+                    super().accept(); return
                 logger.info(f"Recording info saved for: {self.recording.filename}")
                 super().accept()
-            
             except Exception as e:
-                # ROBUST: Catch unexpected errors
-                QMessageBox.critical(
-                    self,
-                    "Unexpected Error",
-                    f"An unexpected error occurred while saving:\n\n{str(e)}\n\n"
-                    f"Your recording is safe, but information was not saved.\n"
-                    f"Please contact support if this continues."
-                )
-                logger.error(f"Exception in recording info save: {e}", exc_info=True)
-                # Still accept dialog - recording is safe
+                QMessageBox.critical(self, "Unexpected Error",
+                    f"An unexpected error occurred:\n\n{str(e)}\n\n"
+                    f"Your recording is safe, but information was not saved.")
+                logger.error(f"Exception: {e}", exc_info=True)
                 super().accept()
         else:
-            # Pre-recording mode - just accept without saving
             super().accept()
-    
+
     # ════════════════════════════════════════════════════════════════════
-    # SECTION 4: GET RECORDING INFO (pre-recording)
+    # SECTION: GET METADATA
     # ════════════════════════════════════════════════════════════════════
-    
+
     def get_metadata(self) -> RecordingMetadata:
-        """
-        Get metadata from dialog inputs.
-        
-        CRITICAL METHOD for pre-recording workflow:
-        - Called by recording_screen when "Add Info" clicked
-        - Returns RecordingMetadata object with user inputs
-        - Data stored temporarily until recording stops
-        
-        Returns:
-            RecordingMetadata: Object with all form data
-        """
         metadata = RecordingMetadata()
-        
-        # Get form values
-        metadata.patient_name = self.patient_input.text().strip()
-        metadata.procedure = self.procedure_combo.currentText()
+        metadata.patient_name      = self.patient_input.text().strip()
+        metadata.procedure         = self.procedure_combo.currentText()
         metadata.operating_theatre = self.ot_combo.currentText()
-        metadata.surgeon_name = self.consultant_input.text().strip()
-        
+        metadata.surgeon_name      = self.consultant_input.text().strip()
         logger.debug(f"Collected recording info: patient={metadata.patient_name}")
-        
         return metadata
 
 
 __all__ = ['MetadataDialog']
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# USAGE EXAMPLES
-# ═══════════════════════════════════════════════════════════════════════════
-"""
-SCENARIO 1: Pre-recording (Add Info button)
--------------------------------------------
-# In recording_screen.py:
-dialog = MetadataDialog(None, self)  # recording=None
-if dialog.exec_():
-    self.metadata = dialog.get_metadata()  # Store temporarily
-    # Data auto-saved when recording stops
-
-SCENARIO 2: Post-recording (Stop button)
------------------------------------------
-# In recording_screen.py:
-dialog = MetadataDialog(recording, self)  # Pass recording object
-if dialog.exec_():
-    # Data saved to database immediately
-    # Error handling built-in
-"""

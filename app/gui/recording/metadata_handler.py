@@ -81,15 +81,18 @@ class MetadataHandler:
         - Pre-recording: recording=None, shows empty or pre-filled dialog
         - Post-recording: recording=object, dialog saves directly to database
         """
-        dialog = MetadataDialog(recording, self.parent_widget)
+        dialog = MetadataDialog(recording, None)
         
         # Pre-fill if metadata exists
+        # Widget names must match MetadataDialog exactly:
+        #   patient_input (QLineEdit), procedure_combo (QComboBox),
+        #   ot_combo (QComboBox), consultant_input (QLineEdit)
+        #   NOTE: no notes_input exists in MetadataDialog
         if self.has_metadata() and recording is None:
             dialog.patient_input.setText(self.metadata.patient_name or "")
             dialog.procedure_combo.setCurrentText(self.metadata.procedure or "")
             dialog.ot_combo.setCurrentText(self.metadata.operating_theatre or "")
-            dialog.surgeon_combo.setCurrentText(self.metadata.surgeon_name or "")
-            dialog.notes_input.setPlainText(self.metadata.notes or "")
+            dialog.consultant_input.setText(self.metadata.surgeon_name or "")
         
         # Show dialog
         result = dialog.exec_()
@@ -198,7 +201,7 @@ class MetadataHandler:
             success, _, error = meta_ctrl.add_metadata(recording, self.metadata)
             
             if success:
-                logger.info(f"Metadata saved for recording: {recording.file_path}")
+                logger.info(f"Metadata saved for recording: {recording.filepath}")
                 return True, None
             else:
                 logger.error(f"Failed to save metadata: {error}")

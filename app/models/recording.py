@@ -109,3 +109,5 @@ class Recording:
     def from_dict(cls, data: dict) -> 'Recording':
         """Create from dict."""
         return cls(**data)
+
+

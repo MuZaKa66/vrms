@@ -13,3 +13,7 @@ venv/
 
 # Project Specific
 videostore/
+logs/
+app/widgets/
+*.pyc
+__pycache__/
